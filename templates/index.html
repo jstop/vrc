@@ -207,7 +207,7 @@ button.download:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Claims list panel */
 .claims-panel {
-  max-height: 280px;
+  max-height: 360px;
   overflow-y: auto;
   padding: 1rem 2rem;
   border-top: 1px solid var(--border);
@@ -360,6 +360,296 @@ button.download:hover { border-color: var(--accent); color: var(--accent); }
 /* Arrow markers */
 marker path { stroke: none; }
 
+/* Graph legend */
+.graph-legend {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(17, 17, 20, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  z-index: 20;
+  display: none;
+}
+
+.graph-legend .legend-title {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.graph-legend .legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.graph-legend .legend-node {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+
+.graph-legend .legend-line {
+  width: 20px;
+  height: 0;
+  border-top: 2px solid;
+  flex-shrink: 0;
+}
+
+.graph-legend .legend-line.dashed {
+  border-top-style: dashed;
+}
+
+.graph-legend .legend-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
+/* Edge hover tooltip */
+.edge-tooltip {
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  max-width: 340px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.edge-tooltip .et-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.edge-tooltip .et-reason {
+  color: var(--text-dim);
+}
+
+/* Node highlight state */
+.node-dimmed circle {
+  opacity: 0.12 !important;
+}
+.node-dimmed text {
+  opacity: 0.12 !important;
+}
+.link-dimmed {
+  opacity: 0.05 !important;
+}
+
+/* Narrative panel */
+.narrative-panel {
+  display: none;
+  padding: 1.25rem 2rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.narrative-panel .narrative-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+}
+
+.narrative-panel .narrative-verdict {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.narrative-panel .narrative-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.narrative-panel .narr-section {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.narrative-panel .narr-section .narr-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+
+.narrative-panel .narr-section .narr-body {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.narrative-panel .narr-claim-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.narrative-panel .narr-claim-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--accepted);
+}
+
+/* Enhanced claim cards */
+.claim-card {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.claim-card:last-child { border-bottom: none; }
+
+.claim-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.claim-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.claim-badge.accepted { background: rgba(52, 211, 153, 0.15); color: var(--accepted); }
+.claim-badge.rejected { background: rgba(248, 113, 113, 0.15); color: var(--rejected); }
+.claim-badge.undecided { background: rgba(251, 191, 36, 0.15); color: var(--undecided); }
+
+.claim-grounded-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(129, 140, 248, 0.15);
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.claim-card-text {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+
+.claim-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.claim-rel-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.claim-rel-group .rel-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.claim-rel-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.63rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: default;
+  position: relative;
+}
+
+.claim-rel-chip.attack-chip {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--attack);
+}
+
+.claim-rel-chip.support-chip {
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--support);
+}
+
+/* Enhanced stats */
+.stats-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.stat-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.stat-secondary .count {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.vrc-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  margin-left: auto;
+  text-align: right;
+  line-height: 1.5;
+}
+
+.vrc-meta .hash {
+  opacity: 0.6;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .container {
@@ -405,7 +695,18 @@ The system will extract discrete claims, identify which ones attack each other, 
       </div>
       <svg id="graph"></svg>
       <div class="tooltip" id="tooltip"></div>
+      <div class="edge-tooltip" id="edgeTooltip"></div>
+      <div class="graph-legend" id="graphLegend">
+        <div class="legend-title">Legend</div>
+        <div class="legend-row"><span class="legend-node" style="border-color:var(--accepted);background:rgba(52,211,153,0.12)"></span> Accepted</div>
+        <div class="legend-row"><span class="legend-node" style="border-color:var(--rejected);background:rgba(248,113,113,0.12)"></span> Rejected</div>
+        <div class="legend-row"><span class="legend-node" style="border-color:var(--undecided);background:rgba(251,191,36,0.12)"></span> Undecided</div>
+        <div class="legend-sep"></div>
+        <div class="legend-row"><span class="legend-line dashed" style="border-color:var(--attack)"></span> Attack</div>
+        <div class="legend-row"><span class="legend-line" style="border-color:var(--support)"></span> Support</div>
+      </div>
     </div>
+    <div class="narrative-panel" id="narrativePanel"></div>
     <div class="claims-panel hidden" id="claimsPanel"></div>
     <div class="results-bar" id="resultsBar" style="display:none;">
       <div class="stat">
@@ -423,6 +724,20 @@ The system will extract discrete claims, identify which ones attack each other, 
         <span class="count" id="undecidedCount">0</span>
         <span class="label">Undecided</span>
       </div>
+      <div class="stats-divider"></div>
+      <div class="stat-secondary">
+        <span class="count" id="totalCount">0</span>
+        <span>Claims</span>
+      </div>
+      <div class="stat-secondary">
+        <span class="count" id="attackCount" style="color:var(--attack)">0</span>
+        <span>Attacks</span>
+      </div>
+      <div class="stat-secondary">
+        <span class="count" id="supportCount" style="color:var(--support)">0</span>
+        <span>Supports</span>
+      </div>
+      <div class="vrc-meta" id="vrcMeta"></div>
       <button class="download" id="downloadBtn" onclick="downloadVRC()">↓ Download VRC</button>
     </div>
   </div>
@@ -431,6 +746,7 @@ The system will extract discrete claims, identify which ones attack each other, 
 <script>
 let currentVRC = null;
 let currentData = null;
+let selectedNode = null;
 
 const colors = {
   accepted: '#34d399',
@@ -456,6 +772,8 @@ async function analyze() {
 
   // Clear previous
   d3.select('#graph').selectAll('*').remove();
+  document.getElementById('narrativePanel').style.display = 'none';
+  selectedNode = null;
 
   try {
     const response = await fetch('/analyze', {
@@ -478,10 +796,12 @@ async function analyze() {
     currentVRC = data.vrc;
 
     renderGraph(data);
+    renderNarrative(data);
     renderClaims(data);
-    renderStats(data.analysis.summary);
+    renderStats(data);
 
     document.getElementById('resultsBar').style.display = 'flex';
+    document.getElementById('graphLegend').style.display = 'block';
 
   } catch (err) {
     errorMsg.textContent = 'Analysis failed: ' + err.message;
@@ -560,8 +880,9 @@ function renderGraph(data) {
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collision', d3.forceCollide().radius(40));
 
-  // Draw links
-  const link = svg.append('g')
+  // Draw visible links
+  const linkGroup = svg.append('g').attr('class', 'links');
+  const link = linkGroup
     .selectAll('line')
     .data(links)
     .join('line')
@@ -571,8 +892,41 @@ function renderGraph(data) {
     .attr('stroke-opacity', 0.5)
     .attr('marker-end', d => `url(#arrow-${d.type})`);
 
+  // Invisible wide hit-area lines for edge hover
+  const edgeTooltip = document.getElementById('edgeTooltip');
+  const hitArea = linkGroup
+    .selectAll('.hit-line')
+    .data(links)
+    .join('line')
+    .attr('class', 'hit-line')
+    .attr('stroke', 'transparent')
+    .attr('stroke-width', 14)
+    .style('cursor', 'pointer')
+    .on('mouseover', (event, d) => {
+      const typeLabel = d.type === 'attack' ? 'ATTACKS' : 'SUPPORTS';
+      const typeColor = d.type === 'attack' ? colors.attack : colors.support;
+      const srcId = typeof d.source === 'object' ? d.source.id : d.source;
+      const tgtId = typeof d.target === 'object' ? d.target.id : d.target;
+      edgeTooltip.innerHTML = `
+        <div class="et-label" style="color:${typeColor}">${srcId} ${typeLabel} ${tgtId}</div>
+        <div class="et-reason">${d.reason || ''}</div>
+      `;
+      edgeTooltip.style.opacity = 1;
+      // Brighten the corresponding visible link
+      link.filter(l => l === d).attr('stroke-opacity', 1).attr('stroke-width', l => l.type === 'attack' ? 3 : 2.5);
+    })
+    .on('mousemove', (event) => {
+      edgeTooltip.style.left = (event.pageX + 15) + 'px';
+      edgeTooltip.style.top = (event.pageY - 10) + 'px';
+    })
+    .on('mouseout', (event, d) => {
+      edgeTooltip.style.opacity = 0;
+      link.filter(l => l === d).attr('stroke-opacity', 0.5).attr('stroke-width', l => l.type === 'attack' ? 2 : 1.5);
+    });
+
   // Draw nodes
-  const node = svg.append('g')
+  const nodeGroup = svg.append('g').attr('class', 'nodes');
+  const node = nodeGroup
     .selectAll('g')
     .data(nodes)
     .join('g')
@@ -584,10 +938,7 @@ function renderGraph(data) {
   // Node circles
   node.append('circle')
     .attr('r', 20)
-    .attr('fill', d => {
-      const c = colors[d.status];
-      return c + '20';
-    })
+    .attr('fill', d => colors[d.status] + '20')
     .attr('stroke', d => colors[d.status])
     .attr('stroke-width', 2)
     .style('filter', d => d.status === 'accepted' ? 'url(#glow)' : 'none')
@@ -604,7 +955,7 @@ function renderGraph(data) {
     .attr('font-weight', '700')
     .style('pointer-events', 'none');
 
-  // Tooltip
+  // Node tooltip
   const tooltip = document.getElementById('tooltip');
 
   node.on('mouseover', (event, d) => {
@@ -624,6 +975,48 @@ function renderGraph(data) {
     tooltip.style.opacity = 0;
   });
 
+  // Node click highlighting
+  node.on('click', (event, d) => {
+    event.stopPropagation();
+    if (selectedNode === d.id) {
+      // Deselect — reset all
+      selectedNode = null;
+      node.classed('node-dimmed', false);
+      link.classed('link-dimmed', false);
+      hitArea.classed('link-dimmed', false);
+    } else {
+      selectedNode = d.id;
+      // Find directly connected node IDs
+      const connected = new Set([d.id]);
+      links.forEach(l => {
+        const srcId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
+        if (srcId === d.id) connected.add(tgtId);
+        if (tgtId === d.id) connected.add(srcId);
+      });
+      // Dim non-connected nodes
+      node.classed('node-dimmed', n => !connected.has(n.id));
+      // Dim non-connected links
+      const isConnected = l => {
+        const srcId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
+        return srcId === d.id || tgtId === d.id;
+      };
+      link.classed('link-dimmed', l => !isConnected(l));
+      hitArea.classed('link-dimmed', l => !isConnected(l));
+    }
+  });
+
+  // Click background to reset highlight
+  svg.on('click', () => {
+    if (selectedNode) {
+      selectedNode = null;
+      node.classed('node-dimmed', false);
+      link.classed('link-dimmed', false);
+      hitArea.classed('link-dimmed', false);
+    }
+  });
+
   // Tick
   simulation.on('tick', () => {
     // Keep nodes in bounds
@@ -633,6 +1026,12 @@ function renderGraph(data) {
     });
 
     link
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+
+    hitArea
       .attr('x1', d => d.source.x)
       .attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x)
@@ -659,9 +1058,112 @@ function renderGraph(data) {
   }
 }
 
+function renderNarrative(data) {
+  const panel = document.getElementById('narrativePanel');
+  const analysis = data.analysis;
+  const summary = analysis.summary;
+  const grounded = analysis.grounded_extension || [];
+  const preferred = analysis.preferred_extensions || [];
+  const stable = analysis.stable_extensions || [];
+  const total = summary.total_arguments || data.claims.length;
+
+  // Overall verdict
+  const acceptRatio = summary.accepted / total;
+  const rejectRatio = summary.rejected / total;
+  let verdict;
+  if (rejectRatio === 0 && summary.undecided === 0) {
+    verdict = 'All claims are formally defensible — this reasoning is <strong style="color:var(--accepted)">fully coherent</strong>.';
+  } else if (acceptRatio >= 0.7) {
+    verdict = 'This reasoning is <strong style="color:var(--accepted)">largely well-structured</strong> with ' + summary.accepted + ' of ' + total + ' claims surviving challenge.';
+  } else if (rejectRatio >= 0.5) {
+    verdict = 'This reasoning is <strong style="color:var(--rejected)">heavily contested</strong> — ' + summary.rejected + ' of ' + total + ' claims are defeated.';
+  } else if (summary.undecided >= summary.accepted) {
+    verdict = 'This reasoning is <strong style="color:var(--undecided)">largely unresolved</strong> — most claims remain undecided under formal analysis.';
+  } else {
+    verdict = 'This reasoning has <strong>mixed defensibility</strong> — ' + summary.accepted + ' accepted, ' + summary.rejected + ' rejected, ' + summary.undecided + ' undecided.';
+  }
+
+  // Grounded explanation
+  let groundedHTML;
+  if (grounded.length === 0) {
+    groundedHTML = 'No claims survive the most skeptical analysis. Every claim faces at least some unresolved challenge.';
+  } else {
+    groundedHTML = grounded.length + ' claim' + (grounded.length !== 1 ? 's' : '') + ' survive' + (grounded.length === 1 ? 's' : '') +
+      ' the most skeptical (grounded) evaluation — ' + (grounded.length === 1 ? 'this is the only conclusion' : 'these are the conclusions') +
+      ' defensible even to a maximally cautious reasoner.' +
+      '<div class="narr-claim-list">' + grounded.map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>';
+  }
+
+  // Preferred explanation
+  let preferredHTML;
+  if (preferred.length === 0) {
+    preferredHTML = 'No preferred extensions found.';
+  } else if (preferred.length === 1) {
+    preferredHTML = 'There is <strong>one coherent worldview</strong> — a single maximal set of mutually compatible claims: ' +
+      '<div class="narr-claim-list">' + preferred[0].map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>';
+  } else {
+    preferredHTML = 'There are <strong>' + preferred.length + ' incompatible worldviews</strong> — reasonable people could endorse different subsets of these claims. ';
+    preferredHTML += preferred.map((ext, i) =>
+      '<div style="margin-top:6px;font-size:0.75rem;color:var(--text-dim)">Position ' + (i + 1) + ':</div>' +
+      '<div class="narr-claim-list">' + ext.map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>'
+    ).join('');
+  }
+
+  // Stable explanation
+  let stableHTML;
+  if (stable.length === 0) {
+    stableHTML = 'No stable extension exists — there is no assignment of accepted/rejected that fully resolves all conflicts. This indicates <strong>fundamental undecidability</strong> in the argument structure.';
+  } else if (stable.length === 1) {
+    stableHTML = 'One stable resolution exists — all conflicts <strong>can</strong> be fully resolved: ' +
+      '<div class="narr-claim-list">' + stable[0].map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>';
+  } else {
+    stableHTML = stable.length + ' stable resolutions exist — conflicts can be fully resolved, but in ' + stable.length + ' different ways.';
+  }
+
+  panel.innerHTML = `
+    <div class="narrative-title">Analysis</div>
+    <div class="narrative-verdict">${verdict}</div>
+    <div class="narrative-sections">
+      <div class="narr-section">
+        <div class="narr-label">Grounded Extension (Skeptical)</div>
+        <div class="narr-body">${groundedHTML}</div>
+      </div>
+      <div class="narr-section">
+        <div class="narr-label">Preferred Extensions (Credulous)</div>
+        <div class="narr-body">${preferredHTML}</div>
+      </div>
+      <div class="narr-section">
+        <div class="narr-label">Stable Extensions (Complete)</div>
+        <div class="narr-body">${stableHTML}</div>
+      </div>
+    </div>
+  `;
+  panel.style.display = 'block';
+}
+
 function renderClaims(data) {
   const panel = document.getElementById('claimsPanel');
   const status = data.analysis.argument_status;
+  const grounded = new Set(data.analysis.grounded_extension || []);
+
+  // Build relationship lookup
+  const attackedBy = {};  // claim -> [{id, reason}]
+  const attacksTo = {};   // claim -> [{id, reason}]
+  const supportedBy = {}; // claim -> [{id, reason}]
+  const supportsTo = {};  // claim -> [{id, reason}]
+
+  data.attacks.forEach(a => {
+    if (!attackedBy[a.to]) attackedBy[a.to] = [];
+    attackedBy[a.to].push({ id: a.from, reason: a.reason });
+    if (!attacksTo[a.from]) attacksTo[a.from] = [];
+    attacksTo[a.from].push({ id: a.to, reason: a.reason });
+  });
+  (data.supports || []).forEach(s => {
+    if (!supportedBy[s.to]) supportedBy[s.to] = [];
+    supportedBy[s.to].push({ id: s.from, reason: s.reason });
+    if (!supportsTo[s.from]) supportsTo[s.from] = [];
+    supportsTo[s.from].push({ id: s.to, reason: s.reason });
+  });
 
   // Sort: accepted first, then undecided, then rejected
   const order = { accepted: 0, undecided: 1, rejected: 2 };
@@ -671,19 +1173,65 @@ function renderClaims(data) {
 
   panel.innerHTML = sorted.map(c => {
     const s = status[c.id] || 'undecided';
-    return `<div class="claim-item">
-      <span class="claim-id ${s}">${c.id}</span>
-      <span class="claim-text">${c.text}</span>
+    const isGrounded = grounded.has(c.id);
+
+    // Build relation chips
+    const relations = [];
+    if (attackedBy[c.id]) {
+      relations.push('<span class="claim-rel-group"><span class="rel-label">Attacked by:</span> ' +
+        attackedBy[c.id].map(r => '<span class="claim-rel-chip attack-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+    }
+    if (supportedBy[c.id]) {
+      relations.push('<span class="claim-rel-group"><span class="rel-label">Supported by:</span> ' +
+        supportedBy[c.id].map(r => '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+    }
+    if (attacksTo[c.id]) {
+      relations.push('<span class="claim-rel-group"><span class="rel-label">Attacks:</span> ' +
+        attacksTo[c.id].map(r => '<span class="claim-rel-chip attack-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+    }
+    if (supportsTo[c.id]) {
+      relations.push('<span class="claim-rel-group"><span class="rel-label">Supports:</span> ' +
+        supportsTo[c.id].map(r => '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+    }
+
+    return `<div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-badge ${s}">${c.id} &middot; ${s}</span>
+        ${isGrounded ? '<span class="claim-grounded-tag">grounded</span>' : ''}
+      </div>
+      <div class="claim-card-text">${c.text}</div>
+      ${relations.length ? '<div class="claim-relations">' + relations.join('') + '</div>' : ''}
     </div>`;
   }).join('');
 
   panel.classList.remove('hidden');
 }
 
-function renderStats(summary) {
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderStats(data) {
+  const summary = data.analysis.summary;
   document.getElementById('acceptedCount').textContent = summary.accepted;
   document.getElementById('rejectedCount').textContent = summary.rejected;
   document.getElementById('undecidedCount').textContent = summary.undecided;
+
+  // Enhanced stats
+  document.getElementById('totalCount').textContent = summary.total_arguments || data.claims.length;
+  document.getElementById('attackCount').textContent = data.attacks.length;
+  document.getElementById('supportCount').textContent = (data.supports || []).length;
+
+  // VRC metadata
+  const vrc = data.vrc;
+  const meta = document.getElementById('vrcMeta');
+  if (vrc && vrc.proof) {
+    const ts = vrc.issuanceDate ? new Date(vrc.issuanceDate).toLocaleString() : '';
+    const hash = vrc.proof.contentHash ? vrc.proof.contentHash.substring(0, 12) + '...' : '';
+    meta.innerHTML = ts + (hash ? '<br><span class="hash">sha256:' + hash + '</span>' : '');
+  } else {
+    meta.innerHTML = '';
+  }
 }
 
 function downloadVRC() {
