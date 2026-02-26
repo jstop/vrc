@@ -9,6 +9,7 @@ import json
 import os
 import hashlib
 import datetime
+import sqlite3
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 
@@ -17,6 +18,40 @@ from anthropic import Anthropic
 from dung_solver import ArgumentationFramework, build_framework
 
 app = Flask(__name__)
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vrc.db")
+
+
+def init_db():
+    """Create the analyses table and indexes if they don't exist."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS analyses (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+            source_hash   TEXT    NOT NULL,
+            source_text   TEXT    NOT NULL,
+            summary_label TEXT    NOT NULL DEFAULT '',
+            accepted      INTEGER NOT NULL DEFAULT 0,
+            rejected      INTEGER NOT NULL DEFAULT 0,
+            undecided     INTEGER NOT NULL DEFAULT 0,
+            result_json   TEXT    NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON analyses(created_at DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_source_hash ON analyses(source_hash)")
+    conn.commit()
+    conn.close()
+
+
+def get_db():
+    """Return a new SQLite connection with row-factory enabled."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+init_db()
 
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
@@ -149,20 +184,78 @@ def analyze():
         # Step 3: Build the VRC
         vrc = build_vrc(text, extraction, analysis)
 
-        return jsonify(
-            {
-                "claims": extraction["claims"],
-                "attacks": extraction["attacks"],
-                "supports": extraction.get("supports", []),
-                "analysis": analysis,
-                "vrc": vrc,
-            }
+        result = {
+            "claims": extraction["claims"],
+            "attacks": extraction["attacks"],
+            "supports": extraction.get("supports", []),
+            "analysis": analysis,
+            "vrc": vrc,
+        }
+
+        # Step 4: Persist to SQLite
+        summary = analysis.get("summary", {})
+        acc = summary.get("accepted", 0)
+        rej = summary.get("rejected", 0)
+        und = summary.get("undecided", 0)
+        total = acc + rej + und
+        summary_label = f"{total} claims · {acc} accepted"
+
+        source_hash = hashlib.sha256(text.encode()).hexdigest()
+        db = get_db()
+        cur = db.execute(
+            """INSERT INTO analyses
+               (source_hash, source_text, summary_label, accepted, rejected, undecided, result_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (source_hash, text, summary_label, acc, rej, und, json.dumps(result)),
         )
+        db.commit()
+        row_id = cur.lastrowid
+        db.close()
+
+        result["id"] = row_id
+        return jsonify(result)
 
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Failed to parse claim extraction: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/history")
+def history():
+    """Return last 50 analyses (lightweight — no full text or result blob)."""
+    db = get_db()
+    rows = db.execute(
+        """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash
+           FROM analyses ORDER BY created_at DESC LIMIT 50"""
+    ).fetchall()
+    db.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/analysis/<int:analysis_id>")
+def get_analysis(analysis_id):
+    """Return full result_json + source_text for a saved analysis."""
+    db = get_db()
+    row = db.execute(
+        "SELECT result_json, source_text FROM analyses WHERE id = ?", (analysis_id,)
+    ).fetchone()
+    db.close()
+    if not row:
+        return jsonify({"error": "Analysis not found"}), 404
+    result = json.loads(row["result_json"])
+    result["source_text"] = row["source_text"]
+    return jsonify(result)
+
+
+@app.route("/analysis/<int:analysis_id>", methods=["DELETE"])
+def delete_analysis(analysis_id):
+    """Delete a single saved analysis."""
+    db = get_db()
+    db.execute("DELETE FROM analyses WHERE id = ?", (analysis_id,))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/health")

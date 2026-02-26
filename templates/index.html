@@ -650,6 +650,149 @@ marker path { stroke: none; }
   opacity: 0.6;
 }
 
+/* History panel */
+.history-section {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  max-height: 40vh;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  user-select: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.history-header:hover { color: var(--text); }
+
+.history-header .arrow {
+  transition: transform 0.2s;
+  font-size: 0.6rem;
+}
+
+.history-header .arrow.open { transform: rotate(90deg); }
+
+.history-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 7px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  min-width: 20px;
+  text-align: center;
+}
+
+.history-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.history-list::-webkit-scrollbar { width: 4px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
+.history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.history-item:hover { background: var(--surface2); }
+.history-item.active { background: rgba(129, 140, 248, 0.1); }
+
+.history-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.history-label {
+  font-size: 0.75rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.history-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.history-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.history-item:hover .history-delete { opacity: 1; }
+.history-delete:hover { background: rgba(248, 113, 113, 0.15); color: var(--rejected); }
+
+.history-empty {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* Loaded-from-history badge */
+.history-loaded-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(129, 140, 248, 0.15);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  z-index: 20;
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .container {
@@ -681,6 +824,14 @@ marker path { stroke: none; }
 The system will extract discrete claims, identify which ones attack each other, and compute which conclusions are formally defensible."></textarea>
     <div id="errorMsg" class="error-msg hidden"></div>
     <button class="analyze" id="analyzeBtn" onclick="analyze()">Analyze Reasoning</button>
+    <div class="history-section" id="historySection">
+      <div class="history-header" onclick="toggleHistory()">
+        <span class="arrow" id="historyArrow">▶</span>
+        <span>History</span>
+        <span class="history-badge" id="historyBadge">0</span>
+      </div>
+      <div class="history-list" id="historyList" style="display:none;"></div>
+    </div>
   </div>
 
   <div class="output-panel">
@@ -696,6 +847,7 @@ The system will extract discrete claims, identify which ones attack each other, 
       <svg id="graph"></svg>
       <div class="tooltip" id="tooltip"></div>
       <div class="edge-tooltip" id="edgeTooltip"></div>
+      <div class="history-loaded-badge" id="historyBadgeIndicator">Loaded from history</div>
       <div class="graph-legend" id="graphLegend">
         <div class="legend-title">Legend</div>
         <div class="legend-row"><span class="legend-node" style="border-color:var(--accepted);background:rgba(52,211,153,0.12)"></span> Accepted</div>
@@ -747,6 +899,8 @@ The system will extract discrete claims, identify which ones attack each other, 
 let currentVRC = null;
 let currentData = null;
 let selectedNode = null;
+let historyOpen = false;
+let loadedHistoryId = null;
 
 const colors = {
   accepted: '#34d399',
@@ -773,6 +927,8 @@ async function analyze() {
   // Clear previous
   d3.select('#graph').selectAll('*').remove();
   document.getElementById('narrativePanel').style.display = 'none';
+  document.getElementById('historyBadgeIndicator').style.display = 'none';
+  loadedHistoryId = null;
   selectedNode = null;
 
   try {
@@ -802,6 +958,8 @@ async function analyze() {
 
     document.getElementById('resultsBar').style.display = 'flex';
     document.getElementById('graphLegend').style.display = 'block';
+
+    fetchHistory();
 
   } catch (err) {
     errorMsg.textContent = 'Analysis failed: ' + err.message;
@@ -1251,6 +1409,147 @@ document.getElementById('inputText').addEventListener('keydown', (e) => {
     analyze();
   }
 });
+
+// ── History ──────────────────────────────────────────────
+
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  document.getElementById('historyList').style.display = historyOpen ? 'block' : 'none';
+  document.getElementById('historyArrow').classList.toggle('open', historyOpen);
+}
+
+function timeAgo(dateStr) {
+  const now = new Date();
+  const then = new Date(dateStr + 'Z'); // SQLite datetime('now') is UTC
+  const seconds = Math.floor((now - then) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return minutes + 'm ago';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + 'h ago';
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 30) return days + 'd ago';
+  return then.toLocaleDateString();
+}
+
+function buildDots(acc, rej, und) {
+  const dots = [];
+  const total = acc + rej + und;
+  if (total === 0) return '';
+  // Show proportional dots (max 5)
+  const count = Math.min(total, 5);
+  const items = [
+    { n: acc, color: 'var(--accepted)' },
+    { n: rej, color: 'var(--rejected)' },
+    { n: und, color: 'var(--undecided)' },
+  ];
+  items.forEach(item => {
+    const share = Math.round((item.n / total) * count);
+    for (let i = 0; i < share; i++) {
+      dots.push('<span style="background:' + item.color + '"></span>');
+    }
+  });
+  // Ensure at least count dots
+  while (dots.length < count) dots.push('<span style="background:var(--undecided)"></span>');
+  return dots.slice(0, count).join('');
+}
+
+async function fetchHistory() {
+  try {
+    const res = await fetch('/history');
+    const items = await res.json();
+    const list = document.getElementById('historyList');
+    document.getElementById('historyBadge').textContent = items.length;
+
+    if (items.length === 0) {
+      list.innerHTML = '<div class="history-empty">No analyses yet</div>';
+      return;
+    }
+
+    list.innerHTML = items.map(item => `
+      <div class="history-item ${loadedHistoryId === item.id ? 'active' : ''}" data-id="${item.id}" onclick="loadFromHistory(${item.id})">
+        <div class="history-item-body">
+          <span class="history-time">${timeAgo(item.created_at)}</span>
+          <span class="history-label">${escapeAttr(item.summary_label)}</span>
+        </div>
+        <div class="history-dots">${buildDots(item.accepted, item.rejected, item.undecided)}</div>
+        <button class="history-delete" onclick="event.stopPropagation(); deleteHistory(${item.id})" title="Delete">✕</button>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Failed to fetch history:', e);
+  }
+}
+
+async function loadFromHistory(id) {
+  const loading = document.getElementById('loading');
+  const empty = document.getElementById('emptyState');
+  const errorMsg = document.getElementById('errorMsg');
+
+  loading.classList.remove('hidden');
+  empty.style.display = 'none';
+  errorMsg.classList.add('hidden');
+  d3.select('#graph').selectAll('*').remove();
+  document.getElementById('narrativePanel').style.display = 'none';
+  selectedNode = null;
+
+  try {
+    const res = await fetch('/analysis/' + id);
+    const data = await res.json();
+
+    if (data.error) {
+      errorMsg.textContent = data.error;
+      errorMsg.classList.remove('hidden');
+      loading.classList.add('hidden');
+      return;
+    }
+
+    currentData = data;
+    currentVRC = data.vrc;
+    loadedHistoryId = id;
+
+    // Populate the textarea with original source text
+    if (data.source_text) {
+      document.getElementById('inputText').value = data.source_text;
+    }
+
+    renderGraph(data);
+    renderNarrative(data);
+    renderClaims(data);
+    renderStats(data);
+
+    document.getElementById('resultsBar').style.display = 'flex';
+    document.getElementById('graphLegend').style.display = 'block';
+    document.getElementById('historyBadgeIndicator').style.display = 'block';
+
+    // Highlight active item in sidebar
+    fetchHistory();
+
+  } catch (err) {
+    errorMsg.textContent = 'Failed to load analysis: ' + err.message;
+    errorMsg.classList.remove('hidden');
+  }
+
+  loading.classList.add('hidden');
+}
+
+async function deleteHistory(id) {
+  if (!confirm('Delete this analysis?')) return;
+  try {
+    await fetch('/analysis/' + id, { method: 'DELETE' });
+    if (loadedHistoryId === id) {
+      loadedHistoryId = null;
+      document.getElementById('historyBadgeIndicator').style.display = 'none';
+    }
+    fetchHistory();
+  } catch (e) {
+    console.error('Failed to delete:', e);
+  }
+}
+
+// Load history on page load
+fetchHistory();
 </script>
 </body>
 </html>
