@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Verifiable Reasoning Credential (VRC) Web App.
+  Deploys a Flask app that extracts claims from text via Claude API,
+  computes formal argumentation extensions, and produces downloadable VRCs.
+
+Parameters:
+  S3Bucket:
+    Type: String
+    Description: S3 bucket containing vrc.tar
+
+  S3Key:
+    Type: String
+    Description: S3 key (path) to vrc.tar
+    Default: vrc.tar
+
+  AnthropicApiKey:
+    Type: String
+    Description: Your Anthropic API key
+    NoEcho: true
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small, t3.medium]
+
+  KeyPairName:
+    Type: String
+    Description: EC2 key pair for SSH (leave empty to disable)
+    Default: ''
+
+  AllowSSHFrom:
+    Type: String
+    Default: '0.0.0.0/0'
+
+  LatestUbuntuAMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+
+Conditions:
+  HasKeyPair: !Not [!Equals [!Ref KeyPairName, '']]
+
+Resources:
+
+  VRCRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3ReadAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject]
+                Resource: !Sub 'arn:aws:s3:::${S3Bucket}/${S3Key}'
+
+  VRCProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref VRCRole]
+
+  VRCSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: VRC Web App
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: '0.0.0.0/0'
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowSSHFrom
+          Description: SSH
+
+  VRCInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestUbuntuAMI
+      IamInstanceProfile: !Ref VRCProfile
+      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref 'AWS::NoValue']
+      SecurityGroupIds: [!GetAtt VRCSecurityGroup.GroupId]
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vrc'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -ex
+          exec > >(tee /var/log/vrc-setup.log) 2>&1
+
+          echo "=== VRC Setup Starting ==="
+          date
+
+          apt-get update -y
+          apt-get install -y python3-pip python3-venv awscli
+
+          # Create app user
+          useradd -m -s /bin/bash vrc
+          APP_DIR=/home/vrc/app
+
+          # Download and extract
+          aws s3 cp s3://${S3Bucket}/${S3Key} /home/vrc/vrc.tar
+          cd /home/vrc
+          tar xf vrc.tar
+
+          # If extracted into a subdirectory, handle both cases
+          if [ -d "vrc" ]; then
+            mv vrc app
+          elif [ -f "app.py" ]; then
+            mkdir -p app
+            mv *.py app/ 2>/dev/null || true
+            mv *.txt app/ 2>/dev/null || true
+            mv templates app/ 2>/dev/null || true
+          fi
+
+          # Install deps
+          cd $APP_DIR
+          pip install -r requirements.txt --break-system-packages
+
+          chown -R vrc:vrc /home/vrc
+
+          # Store API key securely
+          cat > /home/vrc/.env << 'ENVEOF'
+          ANTHROPIC_API_KEY=${AnthropicApiKey}
+          ENVEOF
+          chmod 600 /home/vrc/.env
+          chown vrc:vrc /home/vrc/.env
+
+          # Systemd service
+          cat > /etc/systemd/system/vrc.service << 'SVCEOF'
+          [Unit]
+          Description=Verifiable Reasoning Credential Web App
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=vrc
+          WorkingDirectory=/home/vrc/app
+          EnvironmentFile=/home/vrc/.env
+          ExecStart=/usr/local/bin/gunicorn --bind 0.0.0.0:80 --workers 2 --timeout 120 app:app
+          Restart=always
+          RestartSec=5
+          AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+          [Install]
+          WantedBy=multi-user.target
+          SVCEOF
+
+          systemctl daemon-reload
+          systemctl enable vrc
+          systemctl start vrc
+
+          echo "=== VRC Setup Complete ==="
+          date
+
+Outputs:
+  WebURL:
+    Description: VRC web app URL
+    Value: !Sub 'http://${VRCInstance.PublicIp}'
+
+  SSHCommand:
+    Description: SSH access
+    Condition: HasKeyPair
+    Value: !Sub 'ssh -i ${KeyPairName}.pem ubuntu@${VRCInstance.PublicIp}'
+
+  PublicIP:
+    Description: Instance public IP
+    Value: !GetAtt VRCInstance.PublicIp
