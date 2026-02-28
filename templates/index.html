@@ -41,11 +41,12 @@ body {
   z-index: 9999;
 }
 
+/* ── Header + Nav ──────────────────────────────────────── */
 header {
-  padding: 2rem 3rem 1rem;
+  padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 1.5rem;
 }
 
@@ -56,18 +57,286 @@ header h1 {
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--accent);
+  cursor: pointer;
 }
 
-header .tagline {
+.nav-tabs {
+  display: flex;
+  gap: 0;
+  margin-left: 1rem;
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.handle-display {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.handle-display:hover { background: var(--surface2); }
+
+.handle-display .handle-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.handle-display .handle-edit {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+/* ── Handle Modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}
+
+.modal h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+
+.modal p {
   font-size: 0.85rem;
   color: var(--text-dim);
-  font-weight: 300;
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
 }
 
-.container {
+.handle-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 1rem;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.2s;
+}
+
+.handle-input-wrap:focus-within { border-color: var(--accent); }
+
+.handle-input-wrap .at {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin-right: 0.25rem;
+}
+
+.handle-input-wrap input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  padding: 0.75rem 0;
+}
+
+.handle-input-wrap input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+.handle-error {
+  font-size: 0.75rem;
+  color: var(--rejected);
+  min-height: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-btn:hover { background: #6366f1; }
+.modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.modal-btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.modal-btn.secondary:hover { border-color: var(--text-dim); color: var(--text); }
+
+/* ── View containers ───────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Feed View ─────────────────────────────────────────── */
+.feed-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.feed-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-dim);
+}
+
+.feed-empty .feed-empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.15;
+  margin-bottom: 0.75rem;
+}
+
+.feed-empty p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.feed-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.feed-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.feed-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.feed-handle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.feed-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.feed-card-label {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.feed-card-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.feed-card-dots .feed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.feed-card-dots .feed-stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-left: 0.5rem;
+}
+
+.feed-load-more {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.5rem;
+}
+
+.feed-load-more:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Analyze View (existing UI moved here) ─────────────── */
+.analyze-container {
   display: grid;
   grid-template-columns: 420px 1fr;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - 56px);
 }
 
 .input-panel {
@@ -793,9 +1062,118 @@ marker path { stroke: none; }
   display: none;
 }
 
-/* Responsive */
+/* ── Permalink View ────────────────────────────────────── */
+.permalink-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 56px);
+}
+
+.permalink-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.permalink-back {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.permalink-back:hover { background: var(--surface2); color: var(--text); }
+
+.permalink-attribution {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.permalink-handle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.permalink-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.permalink-copy {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.permalink-copy:hover { border-color: var(--accent); color: var(--accent); }
+
+.permalink-body {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  flex: 1;
+}
+
+.permalink-source {
+  padding: 1.5rem;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.permalink-source-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+}
+
+.permalink-source-text {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.permalink-analysis {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.permalink-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 4rem;
+}
+
+/* ── Responsive ────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .container {
+  .analyze-container {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
   }
@@ -805,102 +1183,222 @@ marker path { stroke: none; }
   }
   textarea { min-height: 150px; }
   .graph-container { min-height: 400px; }
+  .permalink-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .permalink-source {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 200px;
+  }
 }
 </style>
 </head>
 <body>
 <div class="grain"></div>
 
-<header>
-  <h1>VRC</h1>
-  <span class="tagline">Verifiable Reasoning Credential — formal argumentation over natural language claims</span>
-</header>
-
-<div class="container">
-  <div class="input-panel">
-    <label>Paste text to analyze</label>
-    <textarea id="inputText" placeholder="Paste an argument, position paper, AI-generated analysis, policy proposal, or any text making claims...
-
-The system will extract discrete claims, identify which ones attack each other, and compute which conclusions are formally defensible."></textarea>
-    <div id="errorMsg" class="error-msg hidden"></div>
-    <button class="analyze" id="analyzeBtn" onclick="analyze()">Analyze Reasoning</button>
-    <div class="history-section" id="historySection">
-      <div class="history-header" onclick="toggleHistory()">
-        <span class="arrow" id="historyArrow">▶</span>
-        <span>History</span>
-        <span class="history-badge" id="historyBadge">0</span>
-      </div>
-      <div class="history-list" id="historyList" style="display:none;"></div>
+<!-- Handle picker modal -->
+<div class="modal-overlay hidden" id="handleModal">
+  <div class="modal">
+    <h2>Choose a handle</h2>
+    <p>Pick a name others will see on your analyses. No account needed — stored in your browser.</p>
+    <div class="handle-input-wrap">
+      <span class="at">@</span>
+      <input type="text" id="handleInput" placeholder="your-handle" maxlength="24" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="handle-error" id="handleError"></div>
+    <div class="modal-actions">
+      <button class="modal-btn secondary" id="handleSkipBtn" onclick="skipHandle()">Stay anonymous</button>
+      <button class="modal-btn" id="handleSaveBtn" onclick="saveHandle()">Save</button>
     </div>
   </div>
+</div>
 
-  <div class="output-panel">
-    <div class="graph-container" id="graphContainer">
-      <div class="empty-state" id="emptyState">
-        <div class="icon">⬡</div>
-        <p>Paste text and click Analyze to see which claims survive formal challenge</p>
-      </div>
-      <div class="loading hidden" id="loading">
-        <div class="spinner"></div>
-        <div class="loading-text">Extracting claims & computing extensions...</div>
-      </div>
-      <svg id="graph"></svg>
-      <div class="tooltip" id="tooltip"></div>
-      <div class="edge-tooltip" id="edgeTooltip"></div>
-      <div class="history-loaded-badge" id="historyBadgeIndicator">Loaded from history</div>
-      <div class="graph-legend" id="graphLegend">
-        <div class="legend-title">Legend</div>
-        <div class="legend-row"><span class="legend-node" style="border-color:var(--accepted);background:rgba(52,211,153,0.12)"></span> Accepted</div>
-        <div class="legend-row"><span class="legend-node" style="border-color:var(--rejected);background:rgba(248,113,113,0.12)"></span> Rejected</div>
-        <div class="legend-row"><span class="legend-node" style="border-color:var(--undecided);background:rgba(251,191,36,0.12)"></span> Undecided</div>
-        <div class="legend-sep"></div>
-        <div class="legend-row"><span class="legend-line dashed" style="border-color:var(--attack)"></span> Attack</div>
-        <div class="legend-row"><span class="legend-line" style="border-color:var(--support)"></span> Support</div>
+<header>
+  <h1 onclick="navigate('#/')">VRC</h1>
+  <div class="nav-tabs">
+    <button class="nav-tab" id="navFeed" onclick="navigate('#/')">Feed</button>
+    <button class="nav-tab" id="navAnalyze" onclick="navigate('#/new')">Analyze</button>
+  </div>
+  <div class="handle-display" id="handleDisplay" onclick="showHandleModal(true)">
+    <span class="handle-name" id="handleNameDisplay">@anon</span>
+    <span class="handle-edit">&#9998;</span>
+  </div>
+</header>
+
+<!-- ── Feed View ── -->
+<div class="view" id="viewFeed">
+  <div class="feed-wrap">
+    <div id="feedContent"></div>
+  </div>
+</div>
+
+<!-- ── Analyze View ── -->
+<div class="view" id="viewAnalyze">
+  <div class="analyze-container">
+    <div class="input-panel">
+      <label>Paste text to analyze</label>
+      <textarea id="inputText" placeholder="Paste an argument, position paper, AI-generated analysis, policy proposal, or any text making claims...
+
+The system will extract discrete claims, identify which ones attack each other, and compute which conclusions are formally defensible."></textarea>
+      <div id="errorMsg" class="error-msg hidden"></div>
+      <button class="analyze" id="analyzeBtn" onclick="doAnalyze()">Analyze Reasoning</button>
+      <div class="history-section" id="historySection">
+        <div class="history-header" onclick="toggleHistory()">
+          <span class="arrow" id="historyArrow">&#9654;</span>
+          <span>History</span>
+          <span class="history-badge" id="historyBadge">0</span>
+        </div>
+        <div class="history-list" id="historyList" style="display:none;"></div>
       </div>
     </div>
-    <div class="narrative-panel" id="narrativePanel"></div>
-    <div class="claims-panel hidden" id="claimsPanel"></div>
-    <div class="results-bar" id="resultsBar" style="display:none;">
-      <div class="stat">
-        <span class="dot accepted"></span>
-        <span class="count" id="acceptedCount">0</span>
-        <span class="label">Accepted</span>
+
+    <div class="output-panel" id="analyzeOutput">
+      <div class="graph-container" id="graphContainer">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">&#x2B21;</div>
+          <p>Paste text and click Analyze to see which claims survive formal challenge</p>
+        </div>
+        <div class="loading hidden" id="loading">
+          <div class="spinner"></div>
+          <div class="loading-text">Extracting claims & computing extensions...</div>
+        </div>
+        <svg id="graph"></svg>
+        <div class="tooltip" id="tooltip"></div>
+        <div class="edge-tooltip" id="edgeTooltip"></div>
+        <div class="history-loaded-badge" id="historyBadgeIndicator">Loaded from history</div>
+        <div class="graph-legend" id="graphLegend">
+          <div class="legend-title">Legend</div>
+          <div class="legend-row"><span class="legend-node" style="border-color:var(--accepted);background:rgba(52,211,153,0.12)"></span> Accepted</div>
+          <div class="legend-row"><span class="legend-node" style="border-color:var(--rejected);background:rgba(248,113,113,0.12)"></span> Rejected</div>
+          <div class="legend-row"><span class="legend-node" style="border-color:var(--undecided);background:rgba(251,191,36,0.12)"></span> Undecided</div>
+          <div class="legend-sep"></div>
+          <div class="legend-row"><span class="legend-line dashed" style="border-color:var(--attack)"></span> Attack</div>
+          <div class="legend-row"><span class="legend-line" style="border-color:var(--support)"></span> Support</div>
+        </div>
       </div>
-      <div class="stat">
-        <span class="dot rejected"></span>
-        <span class="count" id="rejectedCount">0</span>
-        <span class="label">Rejected</span>
+      <div class="narrative-panel" id="narrativePanel"></div>
+      <div class="claims-panel hidden" id="claimsPanel"></div>
+      <div class="results-bar" id="resultsBar" style="display:none;">
+        <div class="stat">
+          <span class="dot accepted"></span>
+          <span class="count" id="acceptedCount">0</span>
+          <span class="label">Accepted</span>
+        </div>
+        <div class="stat">
+          <span class="dot rejected"></span>
+          <span class="count" id="rejectedCount">0</span>
+          <span class="label">Rejected</span>
+        </div>
+        <div class="stat">
+          <span class="dot undecided"></span>
+          <span class="count" id="undecidedCount">0</span>
+          <span class="label">Undecided</span>
+        </div>
+        <div class="stats-divider"></div>
+        <div class="stat-secondary">
+          <span class="count" id="totalCount">0</span>
+          <span>Claims</span>
+        </div>
+        <div class="stat-secondary">
+          <span class="count" id="attackCount" style="color:var(--attack)">0</span>
+          <span>Attacks</span>
+        </div>
+        <div class="stat-secondary">
+          <span class="count" id="supportCount" style="color:var(--support)">0</span>
+          <span>Supports</span>
+        </div>
+        <div class="vrc-meta" id="vrcMeta"></div>
+        <button class="download" id="downloadBtn" onclick="downloadVRC()">&#8595; Download VRC</button>
       </div>
-      <div class="stat">
-        <span class="dot undecided"></span>
-        <span class="count" id="undecidedCount">0</span>
-        <span class="label">Undecided</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Permalink View ── -->
+<div class="view" id="viewPermalink">
+  <div class="permalink-wrap">
+    <div class="permalink-header">
+      <button class="permalink-back" onclick="navigate('#/')">&larr; Feed</button>
+      <div class="permalink-attribution">
+        <span class="permalink-handle" id="permalinkHandle">@anon</span>
+        <span class="permalink-time" id="permalinkTime"></span>
       </div>
-      <div class="stats-divider"></div>
-      <div class="stat-secondary">
-        <span class="count" id="totalCount">0</span>
-        <span>Claims</span>
+      <button class="permalink-copy" id="permalinkCopyBtn" onclick="copyPermalink()">Copy link</button>
+    </div>
+    <div class="permalink-body">
+      <div class="permalink-source">
+        <div class="permalink-source-label">Source text</div>
+        <div class="permalink-source-text" id="permalinkSourceText"></div>
       </div>
-      <div class="stat-secondary">
-        <span class="count" id="attackCount" style="color:var(--attack)">0</span>
-        <span>Attacks</span>
+      <div class="permalink-analysis" id="permalinkAnalysis">
+        <div class="permalink-loading" id="permalinkLoading">
+          <div class="spinner"></div>
+          <div class="loading-text">Loading analysis...</div>
+        </div>
+        <div class="graph-container" id="permalinkGraphContainer" style="display:none;">
+          <svg id="permalinkGraph"></svg>
+          <div class="tooltip" id="permalinkTooltip"></div>
+          <div class="edge-tooltip" id="permalinkEdgeTooltip"></div>
+          <div class="graph-legend" id="permalinkGraphLegend" style="display:none;">
+            <div class="legend-title">Legend</div>
+            <div class="legend-row"><span class="legend-node" style="border-color:var(--accepted);background:rgba(52,211,153,0.12)"></span> Accepted</div>
+            <div class="legend-row"><span class="legend-node" style="border-color:var(--rejected);background:rgba(248,113,113,0.12)"></span> Rejected</div>
+            <div class="legend-row"><span class="legend-node" style="border-color:var(--undecided);background:rgba(251,191,36,0.12)"></span> Undecided</div>
+            <div class="legend-sep"></div>
+            <div class="legend-row"><span class="legend-line dashed" style="border-color:var(--attack)"></span> Attack</div>
+            <div class="legend-row"><span class="legend-line" style="border-color:var(--support)"></span> Support</div>
+          </div>
+        </div>
+        <div class="narrative-panel" id="permalinkNarrativePanel"></div>
+        <div class="claims-panel hidden" id="permalinkClaimsPanel"></div>
+        <div class="results-bar" id="permalinkResultsBar" style="display:none;">
+          <div class="stat">
+            <span class="dot accepted"></span>
+            <span class="count" id="permalinkAcceptedCount">0</span>
+            <span class="label">Accepted</span>
+          </div>
+          <div class="stat">
+            <span class="dot rejected"></span>
+            <span class="count" id="permalinkRejectedCount">0</span>
+            <span class="label">Rejected</span>
+          </div>
+          <div class="stat">
+            <span class="dot undecided"></span>
+            <span class="count" id="permalinkUndecidedCount">0</span>
+            <span class="label">Undecided</span>
+          </div>
+          <div class="stats-divider"></div>
+          <div class="stat-secondary">
+            <span class="count" id="permalinkTotalCount">0</span>
+            <span>Claims</span>
+          </div>
+          <div class="stat-secondary">
+            <span class="count" id="permalinkAttackCount" style="color:var(--attack)">0</span>
+            <span>Attacks</span>
+          </div>
+          <div class="stat-secondary">
+            <span class="count" id="permalinkSupportCount" style="color:var(--support)">0</span>
+            <span>Supports</span>
+          </div>
+          <div class="vrc-meta" id="permalinkVrcMeta"></div>
+          <button class="download" onclick="downloadVRC()">&#8595; Download VRC</button>
+        </div>
       </div>
-      <div class="stat-secondary">
-        <span class="count" id="supportCount" style="color:var(--support)">0</span>
-        <span>Supports</span>
-      </div>
-      <div class="vrc-meta" id="vrcMeta"></div>
-      <button class="download" id="downloadBtn" onclick="downloadVRC()">↓ Download VRC</button>
     </div>
   </div>
 </div>
 
 <script>
+// ── State ────────────────────────────────────────────────
 let currentVRC = null;
 let currentData = null;
 let selectedNode = null;
 let historyOpen = false;
 let loadedHistoryId = null;
+let feedCursor = null;
+let currentView = null;
 
 const colors = {
   accepted: '#34d399',
@@ -910,7 +1408,274 @@ const colors = {
   support: '#22d3ee'
 };
 
-async function analyze() {
+// ── Handle Management ────────────────────────────────────
+function getHandle() {
+  return localStorage.getItem('vrc_handle') || 'anon';
+}
+
+function setHandle(h) {
+  localStorage.setItem('vrc_handle', h);
+  updateHandleDisplay();
+}
+
+function updateHandleDisplay() {
+  const h = getHandle();
+  document.getElementById('handleNameDisplay').textContent = '@' + h;
+}
+
+function showHandleModal(isEdit) {
+  const modal = document.getElementById('handleModal');
+  const input = document.getElementById('handleInput');
+  const skipBtn = document.getElementById('handleSkipBtn');
+  modal.classList.remove('hidden');
+  input.value = getHandle() === 'anon' ? '' : getHandle();
+  document.getElementById('handleError').textContent = '';
+  if (isEdit) {
+    skipBtn.textContent = 'Cancel';
+  } else {
+    skipBtn.textContent = 'Stay anonymous';
+  }
+  setTimeout(() => input.focus(), 50);
+}
+
+function hideHandleModal() {
+  document.getElementById('handleModal').classList.add('hidden');
+}
+
+function skipHandle() {
+  if (getHandle() === 'anon' || getHandle() === '') {
+    setHandle('anon');
+  }
+  hideHandleModal();
+}
+
+function saveHandle() {
+  const input = document.getElementById('handleInput');
+  const raw = input.value.trim().replace(/^@/, '');
+  const error = document.getElementById('handleError');
+
+  if (!raw) {
+    error.textContent = 'Enter a handle or click "Stay anonymous"';
+    return;
+  }
+  if (raw.length < 2 || raw.length > 24) {
+    error.textContent = 'Handle must be 2-24 characters';
+    return;
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(raw)) {
+    error.textContent = 'Only letters, numbers, hyphens, underscores';
+    return;
+  }
+
+  setHandle(raw);
+  hideHandleModal();
+}
+
+// Enter key in handle input
+document.getElementById('handleInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') saveHandle();
+  if (e.key === 'Escape') hideHandleModal();
+});
+
+// Close modal on overlay click
+document.getElementById('handleModal').addEventListener('click', function(e) {
+  if (e.target === this) hideHandleModal();
+});
+
+// ── Router ───────────────────────────────────────────────
+function navigate(hash) {
+  window.location.hash = hash;
+}
+
+function route() {
+  const hash = window.location.hash || '#/';
+
+  // Hide all views
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+  // Reset nav tabs
+  document.getElementById('navFeed').classList.remove('active');
+  document.getElementById('navAnalyze').classList.remove('active');
+
+  if (hash === '#/' || hash === '#') {
+    // Feed view
+    document.getElementById('viewFeed').classList.add('active');
+    document.getElementById('navFeed').classList.add('active');
+    currentView = 'feed';
+    loadFeed();
+  } else if (hash === '#/new') {
+    // Analyze view
+    document.getElementById('viewAnalyze').classList.add('active');
+    document.getElementById('navAnalyze').classList.add('active');
+    currentView = 'analyze';
+    fetchHistory();
+  } else if (hash.startsWith('#/a/')) {
+    // Permalink view
+    document.getElementById('viewPermalink').classList.add('active');
+    currentView = 'permalink';
+    const id = decodeURIComponent(hash.slice(4));
+    loadPermalink(id);
+  } else {
+    // Fallback to feed
+    document.getElementById('viewFeed').classList.add('active');
+    document.getElementById('navFeed').classList.add('active');
+    currentView = 'feed';
+    loadFeed();
+  }
+}
+
+window.addEventListener('hashchange', route);
+
+// ── Feed ─────────────────────────────────────────────────
+async function loadFeed(append) {
+  const content = document.getElementById('feedContent');
+  if (!append) {
+    content.innerHTML = '<div style="text-align:center;padding:3rem;"><div class="spinner" style="margin:0 auto;"></div></div>';
+    feedCursor = null;
+  }
+
+  try {
+    let url = '/feed?limit=20';
+    if (feedCursor) url += '&cursor=' + encodeURIComponent(feedCursor);
+    const res = await fetch(url);
+    const data = await res.json();
+    const items = data.items || [];
+    feedCursor = data.next_cursor || null;
+
+    if (!append && items.length === 0) {
+      content.innerHTML = `
+        <div class="feed-empty">
+          <div class="feed-empty-icon">&#x2B21;</div>
+          <p>No analyses yet. Be the first.</p>
+          <button class="modal-btn" style="margin-top:1rem;" onclick="navigate('#/new')">Analyze something</button>
+        </div>`;
+      return;
+    }
+
+    let html = append ? '' : '';
+    items.forEach(item => {
+      const handle = item.handle || 'anon';
+      const ago = timeAgo(item.created_at);
+      const acc = item.accepted || 0;
+      const rej = item.rejected || 0;
+      const und = item.undecided || 0;
+      const total = acc + rej + und;
+
+      let dotsHTML = '';
+      if (total > 0) {
+        if (acc > 0) dotsHTML += '<span class="feed-dot" style="background:var(--accepted)"></span>';
+        if (rej > 0) dotsHTML += '<span class="feed-dot" style="background:var(--rejected)"></span>';
+        if (und > 0) dotsHTML += '<span class="feed-dot" style="background:var(--undecided)"></span>';
+        dotsHTML += '<span class="feed-stat">' + acc + '/' + rej + '/' + und + '</span>';
+      }
+
+      html += '<div class="feed-card" onclick="navigate(\'#/a/' + encodeURIComponent(item.id) + '\')">' +
+        '<div class="feed-card-top">' +
+          '<span class="feed-handle">@' + escapeHTML(handle) + '</span>' +
+          '<span class="feed-time">' + ago + '</span>' +
+        '</div>' +
+        '<div class="feed-card-label">' + escapeHTML(item.summary_label || 'Analysis') + '</div>' +
+        '<div class="feed-card-dots">' + dotsHTML + '</div>' +
+      '</div>';
+    });
+
+    if (append) {
+      // Remove old load-more button
+      const oldBtn = content.querySelector('.feed-load-more');
+      if (oldBtn) oldBtn.remove();
+      content.insertAdjacentHTML('beforeend', html);
+    } else {
+      content.innerHTML = html;
+    }
+
+    if (feedCursor) {
+      content.insertAdjacentHTML('beforeend',
+        '<button class="feed-load-more" onclick="loadFeed(true)">Load more</button>');
+    }
+  } catch (err) {
+    if (!append) {
+      content.innerHTML = '<div class="feed-empty"><p>Failed to load feed: ' + escapeHTML(err.message) + '</p></div>';
+    }
+  }
+}
+
+// ── Permalink ────────────────────────────────────────────
+async function loadPermalink(id) {
+  const loading = document.getElementById('permalinkLoading');
+  const graphContainer = document.getElementById('permalinkGraphContainer');
+  const sourceText = document.getElementById('permalinkSourceText');
+
+  loading.style.display = 'flex';
+  graphContainer.style.display = 'none';
+  document.getElementById('permalinkNarrativePanel').style.display = 'none';
+  document.getElementById('permalinkClaimsPanel').classList.add('hidden');
+  document.getElementById('permalinkResultsBar').style.display = 'none';
+  document.getElementById('permalinkGraphLegend').style.display = 'none';
+  sourceText.textContent = '';
+
+  try {
+    const res = await fetch('/analysis/' + encodeURIComponent(id));
+    const data = await res.json();
+
+    if (data.error) {
+      loading.innerHTML = '<div style="color:var(--rejected);font-size:0.85rem;">' + escapeHTML(data.error) + '</div>';
+      return;
+    }
+
+    currentData = data;
+    currentVRC = data.vrc;
+
+    // Attribution
+    const handle = data.handle || 'anon';
+    document.getElementById('permalinkHandle').textContent = '@' + handle;
+
+    // Try to extract time from the id (DynamoDB sk format: ISO#hex)
+    const idStr = String(id);
+    const tsMatch = idStr.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+    if (tsMatch) {
+      document.getElementById('permalinkTime').textContent = timeAgo(tsMatch[1]);
+    } else {
+      document.getElementById('permalinkTime').textContent = '';
+    }
+
+    // Source text
+    sourceText.textContent = data.source_text || '';
+
+    // Render analysis into permalink containers
+    loading.style.display = 'none';
+    graphContainer.style.display = 'block';
+
+    renderGraph(data, 'permalinkGraphContainer', 'permalinkGraph', 'permalinkTooltip', 'permalinkEdgeTooltip');
+    renderNarrative(data, 'permalinkNarrativePanel');
+    renderClaims(data, 'permalinkClaimsPanel');
+    renderStats(data, {
+      accepted: 'permalinkAcceptedCount',
+      rejected: 'permalinkRejectedCount',
+      undecided: 'permalinkUndecidedCount',
+      total: 'permalinkTotalCount',
+      attacks: 'permalinkAttackCount',
+      supports: 'permalinkSupportCount',
+      meta: 'permalinkVrcMeta',
+    });
+    document.getElementById('permalinkResultsBar').style.display = 'flex';
+    document.getElementById('permalinkGraphLegend').style.display = 'block';
+
+  } catch (err) {
+    loading.innerHTML = '<div style="color:var(--rejected);font-size:0.85rem;">Failed to load: ' + escapeHTML(err.message) + '</div>';
+  }
+}
+
+function copyPermalink() {
+  const url = window.location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('permalinkCopyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy link'; }, 1500);
+  });
+}
+
+// ── Analyze ──────────────────────────────────────────────
+async function doAnalyze() {
   const text = document.getElementById('inputText').value.trim();
   if (!text) return;
 
@@ -932,10 +1697,11 @@ async function analyze() {
   selectedNode = null;
 
   try {
+    const handle = getHandle();
     const response = await fetch('/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, handle })
     });
 
     const data = await response.json();
@@ -951,30 +1717,31 @@ async function analyze() {
     currentData = data;
     currentVRC = data.vrc;
 
-    renderGraph(data);
-    renderNarrative(data);
-    renderClaims(data);
-    renderStats(data);
-
-    document.getElementById('resultsBar').style.display = 'flex';
-    document.getElementById('graphLegend').style.display = 'block';
-
-    fetchHistory();
+    // Navigate to permalink view
+    loading.classList.add('hidden');
+    btn.disabled = false;
+    navigate('#/a/' + encodeURIComponent(data.id));
 
   } catch (err) {
     errorMsg.textContent = 'Analysis failed: ' + err.message;
     errorMsg.classList.remove('hidden');
+    loading.classList.add('hidden');
+    btn.disabled = false;
   }
-
-  loading.classList.add('hidden');
-  btn.disabled = false;
 }
 
-function renderGraph(data) {
-  const container = document.getElementById('graphContainer');
+// ── Render functions (parameterized by container IDs) ────
+
+function renderGraph(data, containerId, svgId, tooltipId, edgeTooltipId) {
+  containerId = containerId || 'graphContainer';
+  svgId = svgId || 'graph';
+  tooltipId = tooltipId || 'tooltip';
+  edgeTooltipId = edgeTooltipId || 'edgeTooltip';
+
+  const container = document.getElementById(containerId);
   const width = container.clientWidth;
-  const height = container.clientHeight;
-  const svg = d3.select('#graph');
+  const height = container.clientHeight || 500;
+  const svg = d3.select('#' + svgId);
 
   svg.selectAll('*').remove();
   svg.attr('width', width).attr('height', height);
@@ -983,7 +1750,7 @@ function renderGraph(data) {
   const defs = svg.append('defs');
 
   defs.append('marker')
-    .attr('id', 'arrow-attack')
+    .attr('id', 'arrow-attack-' + svgId)
     .attr('viewBox', '0 -5 10 10')
     .attr('refX', 28)
     .attr('refY', 0)
@@ -995,7 +1762,7 @@ function renderGraph(data) {
     .attr('fill', colors.attack);
 
   defs.append('marker')
-    .attr('id', 'arrow-support')
+    .attr('id', 'arrow-support-' + svgId)
     .attr('viewBox', '0 -5 10 10')
     .attr('refX', 28)
     .attr('refY', 0)
@@ -1007,7 +1774,7 @@ function renderGraph(data) {
     .attr('fill', colors.support);
 
   // Glow filter
-  const filter = defs.append('filter').attr('id', 'glow');
+  const filter = defs.append('filter').attr('id', 'glow-' + svgId);
   filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'blur');
   const merge = filter.append('feMerge');
   merge.append('feMergeNode').attr('in', 'blur');
@@ -1048,10 +1815,10 @@ function renderGraph(data) {
     .attr('stroke-width', d => d.type === 'attack' ? 2 : 1.5)
     .attr('stroke-dasharray', d => d.type === 'attack' ? '6,3' : 'none')
     .attr('stroke-opacity', 0.5)
-    .attr('marker-end', d => `url(#arrow-${d.type})`);
+    .attr('marker-end', d => 'url(#arrow-' + d.type + '-' + svgId + ')');
 
   // Invisible wide hit-area lines for edge hover
-  const edgeTooltip = document.getElementById('edgeTooltip');
+  const edgeTooltipEl = document.getElementById(edgeTooltipId);
   const hitArea = linkGroup
     .selectAll('.hit-line')
     .data(links)
@@ -1065,20 +1832,18 @@ function renderGraph(data) {
       const typeColor = d.type === 'attack' ? colors.attack : colors.support;
       const srcId = typeof d.source === 'object' ? d.source.id : d.source;
       const tgtId = typeof d.target === 'object' ? d.target.id : d.target;
-      edgeTooltip.innerHTML = `
-        <div class="et-label" style="color:${typeColor}">${srcId} ${typeLabel} ${tgtId}</div>
-        <div class="et-reason">${d.reason || ''}</div>
-      `;
-      edgeTooltip.style.opacity = 1;
-      // Brighten the corresponding visible link
+      edgeTooltipEl.innerHTML =
+        '<div class="et-label" style="color:' + typeColor + '">' + srcId + ' ' + typeLabel + ' ' + tgtId + '</div>' +
+        '<div class="et-reason">' + (d.reason || '') + '</div>';
+      edgeTooltipEl.style.opacity = 1;
       link.filter(l => l === d).attr('stroke-opacity', 1).attr('stroke-width', l => l.type === 'attack' ? 3 : 2.5);
     })
     .on('mousemove', (event) => {
-      edgeTooltip.style.left = (event.pageX + 15) + 'px';
-      edgeTooltip.style.top = (event.pageY - 10) + 'px';
+      edgeTooltipEl.style.left = (event.pageX + 15) + 'px';
+      edgeTooltipEl.style.top = (event.pageY - 10) + 'px';
     })
     .on('mouseout', (event, d) => {
-      edgeTooltip.style.opacity = 0;
+      edgeTooltipEl.style.opacity = 0;
       link.filter(l => l === d).attr('stroke-opacity', 0.5).attr('stroke-width', l => l.type === 'attack' ? 2 : 1.5);
     });
 
@@ -1099,7 +1864,7 @@ function renderGraph(data) {
     .attr('fill', d => colors[d.status] + '20')
     .attr('stroke', d => colors[d.status])
     .attr('stroke-width', 2)
-    .style('filter', d => d.status === 'accepted' ? 'url(#glow)' : 'none')
+    .style('filter', d => d.status === 'accepted' ? 'url(#glow-' + svgId + ')' : 'none')
     .style('cursor', 'pointer');
 
   // Node labels
@@ -1114,37 +1879,35 @@ function renderGraph(data) {
     .style('pointer-events', 'none');
 
   // Node tooltip
-  const tooltip = document.getElementById('tooltip');
+  const tooltipEl = document.getElementById(tooltipId);
 
   node.on('mouseover', (event, d) => {
     const statusColor = colors[d.status];
-    tooltip.innerHTML = `
-      <div class="tt-id" style="color:${statusColor}">${d.id}</div>
-      <div class="tt-status" style="color:${statusColor}">${d.status}</div>
-      <div>${d.text}</div>
-    `;
-    tooltip.style.opacity = 1;
+    tooltipEl.innerHTML =
+      '<div class="tt-id" style="color:' + statusColor + '">' + d.id + '</div>' +
+      '<div class="tt-status" style="color:' + statusColor + '">' + d.status + '</div>' +
+      '<div>' + d.text + '</div>';
+    tooltipEl.style.opacity = 1;
   })
   .on('mousemove', (event) => {
-    tooltip.style.left = (event.pageX + 15) + 'px';
-    tooltip.style.top = (event.pageY - 10) + 'px';
+    tooltipEl.style.left = (event.pageX + 15) + 'px';
+    tooltipEl.style.top = (event.pageY - 10) + 'px';
   })
   .on('mouseout', () => {
-    tooltip.style.opacity = 0;
+    tooltipEl.style.opacity = 0;
   });
 
   // Node click highlighting
+  let localSelected = null;
   node.on('click', (event, d) => {
     event.stopPropagation();
-    if (selectedNode === d.id) {
-      // Deselect — reset all
-      selectedNode = null;
+    if (localSelected === d.id) {
+      localSelected = null;
       node.classed('node-dimmed', false);
       link.classed('link-dimmed', false);
       hitArea.classed('link-dimmed', false);
     } else {
-      selectedNode = d.id;
-      // Find directly connected node IDs
+      localSelected = d.id;
       const connected = new Set([d.id]);
       links.forEach(l => {
         const srcId = typeof l.source === 'object' ? l.source.id : l.source;
@@ -1152,9 +1915,7 @@ function renderGraph(data) {
         if (srcId === d.id) connected.add(tgtId);
         if (tgtId === d.id) connected.add(srcId);
       });
-      // Dim non-connected nodes
       node.classed('node-dimmed', n => !connected.has(n.id));
-      // Dim non-connected links
       const isConnected = l => {
         const srcId = typeof l.source === 'object' ? l.source.id : l.source;
         const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
@@ -1165,10 +1926,9 @@ function renderGraph(data) {
     }
   });
 
-  // Click background to reset highlight
   svg.on('click', () => {
-    if (selectedNode) {
-      selectedNode = null;
+    if (localSelected) {
+      localSelected = null;
       node.classed('node-dimmed', false);
       link.classed('link-dimmed', false);
       hitArea.classed('link-dimmed', false);
@@ -1177,7 +1937,6 @@ function renderGraph(data) {
 
   // Tick
   simulation.on('tick', () => {
-    // Keep nodes in bounds
     nodes.forEach(d => {
       d.x = Math.max(30, Math.min(width - 30, d.x));
       d.y = Math.max(30, Math.min(height - 30, d.y));
@@ -1195,7 +1954,7 @@ function renderGraph(data) {
       .attr('x2', d => d.target.x)
       .attr('y2', d => d.target.y);
 
-    node.attr('transform', d => `translate(${d.x},${d.y})`);
+    node.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
   });
 
   function dragstarted(event, d) {
@@ -1216,8 +1975,9 @@ function renderGraph(data) {
   }
 }
 
-function renderNarrative(data) {
-  const panel = document.getElementById('narrativePanel');
+function renderNarrative(data, panelId) {
+  panelId = panelId || 'narrativePanel';
+  const panel = document.getElementById(panelId);
   const analysis = data.analysis;
   const summary = analysis.summary;
   const grounded = analysis.grounded_extension || [];
@@ -1225,7 +1985,6 @@ function renderNarrative(data) {
   const stable = analysis.stable_extensions || [];
   const total = summary.total_arguments || data.claims.length;
 
-  // Overall verdict
   const acceptRatio = summary.accepted / total;
   const rejectRatio = summary.rejected / total;
   let verdict;
@@ -1241,7 +2000,6 @@ function renderNarrative(data) {
     verdict = 'This reasoning has <strong>mixed defensibility</strong> — ' + summary.accepted + ' accepted, ' + summary.rejected + ' rejected, ' + summary.undecided + ' undecided.';
   }
 
-  // Grounded explanation
   let groundedHTML;
   if (grounded.length === 0) {
     groundedHTML = 'No claims survive the most skeptical analysis. Every claim faces at least some unresolved challenge.';
@@ -1249,140 +2007,128 @@ function renderNarrative(data) {
     groundedHTML = grounded.length + ' claim' + (grounded.length !== 1 ? 's' : '') + ' survive' + (grounded.length === 1 ? 's' : '') +
       ' the most skeptical (grounded) evaluation — ' + (grounded.length === 1 ? 'this is the only conclusion' : 'these are the conclusions') +
       ' defensible even to a maximally cautious reasoner.' +
-      '<div class="narr-claim-list">' + grounded.map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>';
+      '<div class="narr-claim-list">' + grounded.map(function(id) { return '<span class="narr-claim-chip">' + id + '</span>'; }).join('') + '</div>';
   }
 
-  // Preferred explanation
   let preferredHTML;
   if (preferred.length === 0) {
     preferredHTML = 'No preferred extensions found.';
   } else if (preferred.length === 1) {
     preferredHTML = 'There is <strong>one coherent worldview</strong> — a single maximal set of mutually compatible claims: ' +
-      '<div class="narr-claim-list">' + preferred[0].map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>';
+      '<div class="narr-claim-list">' + preferred[0].map(function(id) { return '<span class="narr-claim-chip">' + id + '</span>'; }).join('') + '</div>';
   } else {
     preferredHTML = 'There are <strong>' + preferred.length + ' incompatible worldviews</strong> — reasonable people could endorse different subsets of these claims. ';
-    preferredHTML += preferred.map((ext, i) =>
-      '<div style="margin-top:6px;font-size:0.75rem;color:var(--text-dim)">Position ' + (i + 1) + ':</div>' +
-      '<div class="narr-claim-list">' + ext.map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>'
-    ).join('');
+    preferredHTML += preferred.map(function(ext, i) {
+      return '<div style="margin-top:6px;font-size:0.75rem;color:var(--text-dim)">Position ' + (i + 1) + ':</div>' +
+        '<div class="narr-claim-list">' + ext.map(function(id) { return '<span class="narr-claim-chip">' + id + '</span>'; }).join('') + '</div>';
+    }).join('');
   }
 
-  // Stable explanation
   let stableHTML;
   if (stable.length === 0) {
     stableHTML = 'No stable extension exists — there is no assignment of accepted/rejected that fully resolves all conflicts. This indicates <strong>fundamental undecidability</strong> in the argument structure.';
   } else if (stable.length === 1) {
     stableHTML = 'One stable resolution exists — all conflicts <strong>can</strong> be fully resolved: ' +
-      '<div class="narr-claim-list">' + stable[0].map(id => '<span class="narr-claim-chip">' + id + '</span>').join('') + '</div>';
+      '<div class="narr-claim-list">' + stable[0].map(function(id) { return '<span class="narr-claim-chip">' + id + '</span>'; }).join('') + '</div>';
   } else {
     stableHTML = stable.length + ' stable resolutions exist — conflicts can be fully resolved, but in ' + stable.length + ' different ways.';
   }
 
-  panel.innerHTML = `
-    <div class="narrative-title">Analysis</div>
-    <div class="narrative-verdict">${verdict}</div>
-    <div class="narrative-sections">
-      <div class="narr-section">
-        <div class="narr-label">Grounded Extension (Skeptical)</div>
-        <div class="narr-body">${groundedHTML}</div>
-      </div>
-      <div class="narr-section">
-        <div class="narr-label">Preferred Extensions (Credulous)</div>
-        <div class="narr-body">${preferredHTML}</div>
-      </div>
-      <div class="narr-section">
-        <div class="narr-label">Stable Extensions (Complete)</div>
-        <div class="narr-body">${stableHTML}</div>
-      </div>
-    </div>
-  `;
+  panel.innerHTML =
+    '<div class="narrative-title">Analysis</div>' +
+    '<div class="narrative-verdict">' + verdict + '</div>' +
+    '<div class="narrative-sections">' +
+      '<div class="narr-section"><div class="narr-label">Grounded Extension (Skeptical)</div><div class="narr-body">' + groundedHTML + '</div></div>' +
+      '<div class="narr-section"><div class="narr-label">Preferred Extensions (Credulous)</div><div class="narr-body">' + preferredHTML + '</div></div>' +
+      '<div class="narr-section"><div class="narr-label">Stable Extensions (Complete)</div><div class="narr-body">' + stableHTML + '</div></div>' +
+    '</div>';
   panel.style.display = 'block';
 }
 
-function renderClaims(data) {
-  const panel = document.getElementById('claimsPanel');
+function renderClaims(data, panelId) {
+  panelId = panelId || 'claimsPanel';
+  const panel = document.getElementById(panelId);
   const status = data.analysis.argument_status;
   const grounded = new Set(data.analysis.grounded_extension || []);
 
-  // Build relationship lookup
-  const attackedBy = {};  // claim -> [{id, reason}]
-  const attacksTo = {};   // claim -> [{id, reason}]
-  const supportedBy = {}; // claim -> [{id, reason}]
-  const supportsTo = {};  // claim -> [{id, reason}]
+  const attackedBy = {};
+  const attacksTo = {};
+  const supportedBy = {};
+  const supportsTo = {};
 
-  data.attacks.forEach(a => {
+  data.attacks.forEach(function(a) {
     if (!attackedBy[a.to]) attackedBy[a.to] = [];
     attackedBy[a.to].push({ id: a.from, reason: a.reason });
     if (!attacksTo[a.from]) attacksTo[a.from] = [];
     attacksTo[a.from].push({ id: a.to, reason: a.reason });
   });
-  (data.supports || []).forEach(s => {
+  (data.supports || []).forEach(function(s) {
     if (!supportedBy[s.to]) supportedBy[s.to] = [];
     supportedBy[s.to].push({ id: s.from, reason: s.reason });
     if (!supportsTo[s.from]) supportsTo[s.from] = [];
     supportsTo[s.from].push({ id: s.to, reason: s.reason });
   });
 
-  // Sort: accepted first, then undecided, then rejected
   const order = { accepted: 0, undecided: 1, rejected: 2 };
-  const sorted = [...data.claims].sort((a, b) => {
+  const sorted = [].concat(data.claims).sort(function(a, b) {
     return (order[status[a.id]] || 1) - (order[status[b.id]] || 1);
   });
 
-  panel.innerHTML = sorted.map(c => {
+  panel.innerHTML = sorted.map(function(c) {
     const s = status[c.id] || 'undecided';
     const isGrounded = grounded.has(c.id);
 
-    // Build relation chips
     const relations = [];
     if (attackedBy[c.id]) {
       relations.push('<span class="claim-rel-group"><span class="rel-label">Attacked by:</span> ' +
-        attackedBy[c.id].map(r => '<span class="claim-rel-chip attack-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+        attackedBy[c.id].map(function(r) { return '<span class="claim-rel-chip attack-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>'; }).join(' ') + '</span>');
     }
     if (supportedBy[c.id]) {
       relations.push('<span class="claim-rel-group"><span class="rel-label">Supported by:</span> ' +
-        supportedBy[c.id].map(r => '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+        supportedBy[c.id].map(function(r) { return '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>'; }).join(' ') + '</span>');
     }
     if (attacksTo[c.id]) {
       relations.push('<span class="claim-rel-group"><span class="rel-label">Attacks:</span> ' +
-        attacksTo[c.id].map(r => '<span class="claim-rel-chip attack-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+        attacksTo[c.id].map(function(r) { return '<span class="claim-rel-chip attack-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>'; }).join(' ') + '</span>');
     }
     if (supportsTo[c.id]) {
       relations.push('<span class="claim-rel-group"><span class="rel-label">Supports:</span> ' +
-        supportsTo[c.id].map(r => '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>').join(' ') + '</span>');
+        supportsTo[c.id].map(function(r) { return '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>'; }).join(' ') + '</span>');
     }
 
-    return `<div class="claim-card">
-      <div class="claim-card-header">
-        <span class="claim-badge ${s}">${c.id} &middot; ${s}</span>
-        ${isGrounded ? '<span class="claim-grounded-tag">grounded</span>' : ''}
-      </div>
-      <div class="claim-card-text">${c.text}</div>
-      ${relations.length ? '<div class="claim-relations">' + relations.join('') + '</div>' : ''}
-    </div>`;
+    return '<div class="claim-card">' +
+      '<div class="claim-card-header">' +
+        '<span class="claim-badge ' + s + '">' + c.id + ' &middot; ' + s + '</span>' +
+        (isGrounded ? '<span class="claim-grounded-tag">grounded</span>' : '') +
+      '</div>' +
+      '<div class="claim-card-text">' + c.text + '</div>' +
+      (relations.length ? '<div class="claim-relations">' + relations.join('') + '</div>' : '') +
+    '</div>';
   }).join('');
 
   panel.classList.remove('hidden');
 }
 
-function escapeAttr(str) {
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function renderStats(data) {
+function renderStats(data, ids) {
+  ids = ids || {
+    accepted: 'acceptedCount',
+    rejected: 'rejectedCount',
+    undecided: 'undecidedCount',
+    total: 'totalCount',
+    attacks: 'attackCount',
+    supports: 'supportCount',
+    meta: 'vrcMeta',
+  };
   const summary = data.analysis.summary;
-  document.getElementById('acceptedCount').textContent = summary.accepted;
-  document.getElementById('rejectedCount').textContent = summary.rejected;
-  document.getElementById('undecidedCount').textContent = summary.undecided;
+  document.getElementById(ids.accepted).textContent = summary.accepted;
+  document.getElementById(ids.rejected).textContent = summary.rejected;
+  document.getElementById(ids.undecided).textContent = summary.undecided;
+  document.getElementById(ids.total).textContent = summary.total_arguments || data.claims.length;
+  document.getElementById(ids.attacks).textContent = data.attacks.length;
+  document.getElementById(ids.supports).textContent = (data.supports || []).length;
 
-  // Enhanced stats
-  document.getElementById('totalCount').textContent = summary.total_arguments || data.claims.length;
-  document.getElementById('attackCount').textContent = data.attacks.length;
-  document.getElementById('supportCount').textContent = (data.supports || []).length;
-
-  // VRC metadata
   const vrc = data.vrc;
-  const meta = document.getElementById('vrcMeta');
+  const meta = document.getElementById(ids.meta);
   if (vrc && vrc.proof) {
     const ts = vrc.issuanceDate ? new Date(vrc.issuanceDate).toLocaleString() : '';
     const hash = vrc.proof.contentHash ? vrc.proof.contentHash.substring(0, 12) + '...' : '';
@@ -1404,21 +2150,26 @@ function downloadVRC() {
 }
 
 // Handle Enter key
-document.getElementById('inputText').addEventListener('keydown', (e) => {
+document.getElementById('inputText').addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    analyze();
+    doAnalyze();
   }
 });
 
-// ── History ──────────────────────────────────────────────
+// ── Utilities ────────────────────────────────────────────
 
-function toggleHistory() {
-  historyOpen = !historyOpen;
-  document.getElementById('historyList').style.display = historyOpen ? 'block' : 'none';
-  document.getElementById('historyArrow').classList.toggle('open', historyOpen);
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 function timeAgo(dateStr) {
+  if (!dateStr) return '';
   const now = new Date();
   const then = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
   const seconds = Math.floor((now - then) / 1000);
@@ -1437,22 +2188,28 @@ function buildDots(acc, rej, und) {
   const dots = [];
   const total = acc + rej + und;
   if (total === 0) return '';
-  // Show proportional dots (max 5)
   const count = Math.min(total, 5);
   const items = [
     { n: acc, color: 'var(--accepted)' },
     { n: rej, color: 'var(--rejected)' },
     { n: und, color: 'var(--undecided)' },
   ];
-  items.forEach(item => {
+  items.forEach(function(item) {
     const share = Math.round((item.n / total) * count);
     for (let i = 0; i < share; i++) {
       dots.push('<span style="background:' + item.color + '"></span>');
     }
   });
-  // Ensure at least count dots
   while (dots.length < count) dots.push('<span style="background:var(--undecided)"></span>');
   return dots.slice(0, count).join('');
+}
+
+// ── History (sidebar in Analyze view) ────────────────────
+
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  document.getElementById('historyList').style.display = historyOpen ? 'block' : 'none';
+  document.getElementById('historyArrow').classList.toggle('open', historyOpen);
 }
 
 async function fetchHistory() {
@@ -1467,71 +2224,24 @@ async function fetchHistory() {
       return;
     }
 
-    list.innerHTML = items.map(item => `
-      <div class="history-item ${loadedHistoryId === item.id ? 'active' : ''}" data-id="${item.id}" onclick="loadFromHistory('${item.id}')">
-        <div class="history-item-body">
-          <span class="history-time">${timeAgo(item.created_at)}</span>
-          <span class="history-label">${escapeAttr(item.summary_label)}</span>
-        </div>
-        <div class="history-dots">${buildDots(item.accepted, item.rejected, item.undecided)}</div>
-        <button class="history-delete" onclick="event.stopPropagation(); deleteHistory('${item.id}')" title="Delete">✕</button>
-      </div>
-    `).join('');
+    list.innerHTML = items.map(function(item) {
+      return '<div class="history-item ' + (loadedHistoryId === item.id ? 'active' : '') + '" data-id="' + item.id + '" onclick="loadFromHistory(\'' + item.id + '\')">' +
+        '<div class="history-item-body">' +
+          '<span class="history-time">' + timeAgo(item.created_at) + '</span>' +
+          '<span class="history-label">' + escapeAttr(item.summary_label) + '</span>' +
+        '</div>' +
+        '<div class="history-dots">' + buildDots(item.accepted, item.rejected, item.undecided) + '</div>' +
+        '<button class="history-delete" onclick="event.stopPropagation(); deleteHistory(\'' + item.id + '\')" title="Delete">&#10005;</button>' +
+      '</div>';
+    }).join('');
   } catch (e) {
     console.error('Failed to fetch history:', e);
   }
 }
 
 async function loadFromHistory(id) {
-  const loading = document.getElementById('loading');
-  const empty = document.getElementById('emptyState');
-  const errorMsg = document.getElementById('errorMsg');
-
-  loading.classList.remove('hidden');
-  empty.style.display = 'none';
-  errorMsg.classList.add('hidden');
-  d3.select('#graph').selectAll('*').remove();
-  document.getElementById('narrativePanel').style.display = 'none';
-  selectedNode = null;
-
-  try {
-    const res = await fetch('/analysis/' + encodeURIComponent(id));
-    const data = await res.json();
-
-    if (data.error) {
-      errorMsg.textContent = data.error;
-      errorMsg.classList.remove('hidden');
-      loading.classList.add('hidden');
-      return;
-    }
-
-    currentData = data;
-    currentVRC = data.vrc;
-    loadedHistoryId = id;
-
-    // Populate the textarea with original source text
-    if (data.source_text) {
-      document.getElementById('inputText').value = data.source_text;
-    }
-
-    renderGraph(data);
-    renderNarrative(data);
-    renderClaims(data);
-    renderStats(data);
-
-    document.getElementById('resultsBar').style.display = 'flex';
-    document.getElementById('graphLegend').style.display = 'block';
-    document.getElementById('historyBadgeIndicator').style.display = 'block';
-
-    // Highlight active item in sidebar
-    fetchHistory();
-
-  } catch (err) {
-    errorMsg.textContent = 'Failed to load analysis: ' + err.message;
-    errorMsg.classList.remove('hidden');
-  }
-
-  loading.classList.add('hidden');
+  // Navigate to permalink view for this analysis
+  navigate('#/a/' + encodeURIComponent(id));
 }
 
 async function deleteHistory(id) {
@@ -1548,8 +2258,16 @@ async function deleteHistory(id) {
   }
 }
 
-// Load history on page load
-fetchHistory();
+// ── Init ─────────────────────────────────────────────────
+updateHandleDisplay();
+
+// Show handle modal on first visit
+if (!localStorage.getItem('vrc_handle')) {
+  showHandleModal(false);
+}
+
+// Route on load
+route();
 </script>
 </body>
 </html>

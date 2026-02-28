@@ -1,0 +1,82 @@
+name: Test & Deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run tests
+        env:
+          ANTHROPIC_API_KEY: test-key-not-real
+        run: pytest tests/ -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Lambda dependencies
+        run: |
+          pip install \
+            --target package/ \
+            --platform manylinux2014_x86_64 \
+            --only-binary=:all: \
+            --implementation cp \
+            --python-version 3.12 \
+            -r requirements.txt
+
+      - name: Copy application files
+        run: |
+          cp app.py dung_solver.py package/
+          cp -r templates package/
+
+      - name: Build zip
+        run: cd package && zip -r9 ../lambda.zip . -q
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload to S3
+        run: aws s3 cp lambda.zip s3://${{ secrets.S3_BUCKET }}/lambda-packages/vrc/lambda.zip
+
+      - name: Update Lambda function
+        run: |
+          aws lambda update-function-code \
+            --function-name vrc-app \
+            --s3-bucket ${{ secrets.S3_BUCKET }} \
+            --s3-key lambda-packages/vrc/lambda.zip \
+            --no-cli-pager
+
+      - name: Wait for Lambda to be active
+        run: aws lambda wait function-active-v2 --function-name vrc-app
+
+      - name: Health check
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://vrc.routinebuilders.com/health)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Health check passed (HTTP $HTTP_CODE)"
+          else
+            echo "Health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi

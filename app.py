@@ -10,6 +10,7 @@ import os
 import hashlib
 import datetime
 import uuid
+import re
 from decimal import Decimal
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
@@ -31,7 +32,7 @@ if DYNAMODB_TABLE:
     _ddb = boto3.resource("dynamodb")
     _table = _ddb.Table(DYNAMODB_TABLE)
 
-    def _ddb_save(source_hash, source_text, summary_label, acc, rej, und, result_json):
+    def _ddb_save(source_hash, source_text, summary_label, acc, rej, und, result_json, handle="anon"):
         ts = datetime.datetime.utcnow().isoformat() + "Z"
         sk = f"{ts}#{uuid.uuid4().hex[:8]}"
         _table.put_item(Item={
@@ -44,6 +45,9 @@ if DYNAMODB_TABLE:
             "rejected": rej,
             "undecided": und,
             "result_json": result_json,
+            "handle": handle,
+            "gsi1pk": "FEED",
+            "gsi1sk": sk,
         })
         return sk
 
@@ -52,7 +56,7 @@ if DYNAMODB_TABLE:
             KeyConditionExpression=boto3.dynamodb.conditions.Key("pk").eq("ANALYSIS"),
             ScanIndexForward=False,
             Limit=50,
-            ProjectionExpression="sk, summary_label, accepted, rejected, undecided, source_hash",
+            ProjectionExpression="sk, summary_label, accepted, rejected, undecided, source_hash, handle",
         )
         rows = []
         for item in resp.get("Items", []):
@@ -64,8 +68,37 @@ if DYNAMODB_TABLE:
                 "rejected": int(item["rejected"]),
                 "undecided": int(item["undecided"]),
                 "source_hash": item["source_hash"],
+                "handle": item.get("handle", "anon"),
             })
         return rows
+
+    def _ddb_feed(cursor=None, limit=20):
+        kwargs = {
+            "IndexName": "gsi1",
+            "KeyConditionExpression": boto3.dynamodb.conditions.Key("gsi1pk").eq("FEED"),
+            "ScanIndexForward": False,
+            "Limit": limit,
+            "ProjectionExpression": "sk, summary_label, accepted, rejected, undecided, source_hash, handle",
+        }
+        if cursor:
+            kwargs["ExclusiveStartKey"] = json.loads(cursor)
+        resp = _table.query(**kwargs)
+        rows = []
+        for item in resp.get("Items", []):
+            rows.append({
+                "id": item["sk"],
+                "created_at": item["sk"].split("#")[0],
+                "summary_label": item["summary_label"],
+                "accepted": int(item["accepted"]),
+                "rejected": int(item["rejected"]),
+                "undecided": int(item["undecided"]),
+                "source_hash": item["source_hash"],
+                "handle": item.get("handle", "anon"),
+            })
+        next_cursor = None
+        if "LastEvaluatedKey" in resp:
+            next_cursor = json.dumps(resp["LastEvaluatedKey"], default=str)
+        return rows, next_cursor
 
     def _ddb_get(sk):
         resp = _table.get_item(Key={"pk": "ANALYSIS", "sk": sk})
@@ -74,6 +107,7 @@ if DYNAMODB_TABLE:
             return None
         result = json.loads(item["result_json"])
         result["source_text"] = item["source_text"]
+        result["handle"] = item.get("handle", "anon")
         return result
 
     def _ddb_delete(sk):
@@ -104,6 +138,11 @@ else:
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON analyses(created_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_source_hash ON analyses(source_hash)")
+        # Add handle column if missing (migration for existing DBs)
+        try:
+            conn.execute("ALTER TABLE analyses ADD COLUMN handle TEXT NOT NULL DEFAULT 'anon'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.commit()
         conn.close()
 
@@ -113,6 +152,19 @@ else:
         return conn
 
     _init_db()
+
+    def _ddb_feed(cursor=None, limit=20):
+        db = _get_db()
+        offset = int(cursor) if cursor else 0
+        rows = db.execute(
+            """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash, handle
+               FROM analyses ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+            (limit, offset),
+        ).fetchall()
+        db.close()
+        items = [dict(r) for r in rows]
+        next_cursor = str(offset + limit) if len(items) == limit else None
+        return items, next_cursor
 
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
@@ -218,6 +270,19 @@ def build_vrc(text: str, extraction: dict, analysis: dict) -> dict:
     }
 
 
+HANDLE_RE = re.compile(r'^[a-zA-Z0-9_-]{2,24}$')
+
+
+def _sanitize_handle(raw):
+    """Validate and return a handle, or 'anon' if invalid."""
+    if not raw or not isinstance(raw, str):
+        return "anon"
+    raw = raw.strip().lstrip("@")
+    if HANDLE_RE.match(raw):
+        return raw
+    return "anon"
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -227,6 +292,7 @@ def index():
 def analyze():
     data = request.get_json()
     text = data.get("text", "").strip()
+    handle = _sanitize_handle(data.get("handle"))
 
     if not text:
         return jsonify({"error": "No text provided"}), 400
@@ -263,26 +329,39 @@ def analyze():
         source_hash = hashlib.sha256(text.encode()).hexdigest()
 
         if DYNAMODB_TABLE:
-            row_id = _ddb_save(source_hash, text, summary_label, acc, rej, und, json.dumps(result))
+            row_id = _ddb_save(source_hash, text, summary_label, acc, rej, und, json.dumps(result), handle)
         else:
             db = _get_db()
             cur = db.execute(
                 """INSERT INTO analyses
-                   (source_hash, source_text, summary_label, accepted, rejected, undecided, result_json)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (source_hash, text, summary_label, acc, rej, und, json.dumps(result)),
+                   (source_hash, source_text, summary_label, accepted, rejected, undecided, result_json, handle)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (source_hash, text, summary_label, acc, rej, und, json.dumps(result), handle),
             )
             db.commit()
             row_id = cur.lastrowid
             db.close()
 
         result["id"] = row_id
+        result["handle"] = handle
         return jsonify(result)
 
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Failed to parse claim extraction: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/feed")
+def feed():
+    """Public paginated feed of all analyses, newest first."""
+    cursor = request.args.get("cursor")
+    limit = min(int(request.args.get("limit", 20)), 50)
+    items, next_cursor = _ddb_feed(cursor, limit)
+    result = {"items": items}
+    if next_cursor:
+        result["next_cursor"] = next_cursor
+    return jsonify(result)
 
 
 @app.route("/history")
@@ -292,7 +371,7 @@ def history():
         return jsonify(_ddb_list())
     db = _get_db()
     rows = db.execute(
-        """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash
+        """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash, handle
            FROM analyses ORDER BY created_at DESC LIMIT 50"""
     ).fetchall()
     db.close()
@@ -301,7 +380,7 @@ def history():
 
 @app.route("/analysis/<path:analysis_id>")
 def get_analysis(analysis_id):
-    """Return full result_json + source_text for a saved analysis."""
+    """Return full result_json + source_text + handle for a saved analysis."""
     if DYNAMODB_TABLE:
         result = _ddb_get(analysis_id)
         if not result:
@@ -309,13 +388,14 @@ def get_analysis(analysis_id):
         return jsonify(result)
     db = _get_db()
     row = db.execute(
-        "SELECT result_json, source_text FROM analyses WHERE id = ?", (int(analysis_id),)
+        "SELECT result_json, source_text, handle FROM analyses WHERE id = ?", (int(analysis_id),)
     ).fetchone()
     db.close()
     if not row:
         return jsonify({"error": "Analysis not found"}), 404
     result = json.loads(row["result_json"])
     result["source_text"] = row["source_text"]
+    result["handle"] = row["handle"] if row["handle"] else "anon"
     return jsonify(result)
 
 
