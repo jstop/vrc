@@ -294,24 +294,51 @@ header h1 {
   margin-bottom: 0.5rem;
 }
 
-.feed-card-dots {
+.feed-verdict-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+
+.feed-verdict-tag.coherent { background: rgba(52, 211, 153, 0.15); color: var(--accepted); }
+.feed-verdict-tag.mixed { background: rgba(129, 140, 248, 0.15); color: var(--accent); }
+.feed-verdict-tag.contested { background: rgba(248, 113, 113, 0.15); color: var(--rejected); }
+.feed-verdict-tag.unresolved { background: rgba(251, 191, 36, 0.15); color: var(--undecided); }
+
+.feed-bar-wrap {
   display: flex;
-  gap: 5px;
   align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
 }
 
-.feed-card-dots .feed-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.feed-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface2);
+  overflow: hidden;
+  display: flex;
 }
 
-.feed-card-dots .feed-stat {
+.feed-bar .seg { height: 100%; }
+
+.feed-stats {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem;
-  color: var(--text-dim);
-  margin-left: 0.5rem;
+  flex-shrink: 0;
 }
+
+.feed-stats .fs { display: flex; align-items: center; gap: 3px; }
+.feed-stats .fs .dot { width: 6px; height: 6px; border-radius: 50%; }
+.feed-stats .fs .num { font-weight: 600; }
 
 .feed-load-more {
   display: block;
@@ -1576,21 +1603,50 @@ async function loadFeed(append) {
       const und = item.undecided || 0;
       const total = acc + rej + und;
 
-      let dotsHTML = '';
-      if (total > 0) {
-        if (acc > 0) dotsHTML += '<span class="feed-dot" style="background:var(--accepted)"></span>';
-        if (rej > 0) dotsHTML += '<span class="feed-dot" style="background:var(--rejected)"></span>';
-        if (und > 0) dotsHTML += '<span class="feed-dot" style="background:var(--undecided)"></span>';
-        dotsHTML += '<span class="feed-stat">' + acc + '/' + rej + '/' + und + '</span>';
+      // Verdict tag
+      var verdictText, verdictClass;
+      var accRatio = total > 0 ? acc / total : 0;
+      var rejRatio = total > 0 ? rej / total : 0;
+      if (rej === 0 && und === 0) {
+        verdictText = 'Fully Coherent'; verdictClass = 'coherent';
+      } else if (accRatio >= 0.7) {
+        verdictText = 'Largely Coherent'; verdictClass = 'coherent';
+      } else if (rejRatio >= 0.5) {
+        verdictText = 'Contested'; verdictClass = 'contested';
+      } else if (und >= acc) {
+        verdictText = 'Unresolved'; verdictClass = 'unresolved';
+      } else {
+        verdictText = 'Mixed'; verdictClass = 'mixed';
       }
+
+      // Proportion bar segments
+      var barHTML = '';
+      if (total > 0) {
+        var ap = (acc / total * 100).toFixed(1);
+        var rp = (rej / total * 100).toFixed(1);
+        var up = (und / total * 100).toFixed(1);
+        if (acc > 0) barHTML += '<div class="seg" style="width:' + ap + '%;background:var(--accepted)"></div>';
+        if (rej > 0) barHTML += '<div class="seg" style="width:' + rp + '%;background:var(--rejected)"></div>';
+        if (und > 0) barHTML += '<div class="seg" style="width:' + up + '%;background:var(--undecided)"></div>';
+      }
+
+      // Stats
+      var statsHTML =
+        '<span class="fs"><span class="dot" style="background:var(--accepted)"></span><span class="num" style="color:var(--accepted)">' + acc + '</span></span>' +
+        '<span class="fs"><span class="dot" style="background:var(--rejected)"></span><span class="num" style="color:var(--rejected)">' + rej + '</span></span>' +
+        '<span class="fs"><span class="dot" style="background:var(--undecided)"></span><span class="num" style="color:var(--undecided)">' + und + '</span></span>';
 
       html += '<div class="feed-card" onclick="navigate(\'#/a/' + encodeURIComponent(item.id) + '\')">' +
         '<div class="feed-card-top">' +
           '<span class="feed-handle">@' + escapeHTML(handle) + '</span>' +
+          '<span class="feed-verdict-tag ' + verdictClass + '">' + verdictText + '</span>' +
           '<span class="feed-time">' + ago + '</span>' +
         '</div>' +
         '<div class="feed-card-label">' + escapeHTML(item.summary_label || 'Analysis') + '</div>' +
-        '<div class="feed-card-dots">' + dotsHTML + '</div>' +
+        '<div class="feed-bar-wrap">' +
+          '<div class="feed-bar">' + barHTML + '</div>' +
+          '<div class="feed-stats">' + statsHTML + '</div>' +
+        '</div>' +
       '</div>';
     });
 

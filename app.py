@@ -325,7 +325,12 @@ def analyze():
         rej = summary.get("rejected", 0)
         und = summary.get("undecided", 0)
         total = acc + rej + und
-        summary_label = f"{total} claims · {acc} accepted"
+        if rej == 0 and und == 0:
+            summary_label = f"{total} claims · all accepted"
+        elif und == 0:
+            summary_label = f"{total} claims · {acc} accepted, {rej} rejected"
+        else:
+            summary_label = f"{total} claims · {acc} accepted, {rej} rejected, {und} undecided"
         source_hash = hashlib.sha256(text.encode()).hexdigest()
 
         if DYNAMODB_TABLE:
