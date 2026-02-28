@@ -883,6 +883,21 @@ marker path { stroke: none; }
   color: var(--support);
 }
 
+/* Per-claim reasoning */
+.claim-reasoning { font-size: 0.75rem; font-style: italic; line-height: 1.4; margin-top: 0.25rem; }
+.claim-reasoning.accepted { color: var(--accepted); opacity: 0.85; }
+.claim-reasoning.rejected { color: var(--rejected); opacity: 0.85; }
+.claim-reasoning.undecided { color: var(--undecided); opacity: 0.85; }
+
+/* Narrative walkthrough */
+.narrative-walkthrough { font-size: 0.85rem; line-height: 1.65; color: var(--text); margin: 1rem 0; padding: 1rem; background: var(--surface2); border-radius: 6px; border-left: 3px solid var(--accent); }
+.narrative-walkthrough p { margin-bottom: 0.6rem; }
+.narrative-walkthrough p:last-child { margin-bottom: 0; }
+.narrative-walkthrough .wt-claim-ref { font-weight: 600; }
+.narrative-walkthrough .wt-claim-ref.accepted { color: var(--accepted); }
+.narrative-walkthrough .wt-claim-ref.rejected { color: var(--rejected); }
+.narrative-walkthrough .wt-claim-ref.undecided { color: var(--undecided); }
+
 /* Enhanced stats */
 .stats-divider {
   width: 1px;
@@ -1975,6 +1990,102 @@ function renderGraph(data, containerId, svgId, tooltipId, edgeTooltipId) {
   }
 }
 
+function renderWalkthrough(data) {
+  var claims = data.claims;
+  var attacks = data.attacks || [];
+  var supports = data.supports || [];
+  var status = data.analysis.argument_status;
+  var grounded = new Set(data.analysis.grounded_extension || []);
+
+  function claimRef(id) {
+    var s = status[id] || 'undecided';
+    return '<span class="wt-claim-ref ' + s + '">' + id + '</span>';
+  }
+
+  // Build lookup of claim text by id
+  var claimText = {};
+  claims.forEach(function(c) { claimText[c.id] = c.text; });
+
+  var paragraphs = [];
+
+  // 1. Opening
+  paragraphs.push('This analysis extracted <strong>' + claims.length + ' claim' + (claims.length !== 1 ? 's' : '') + '</strong>' +
+    ' with <strong>' + attacks.length + ' attack relation' + (attacks.length !== 1 ? 's' : '') + '</strong>' +
+    (supports.length > 0 ? ' and <strong>' + supports.length + ' support relation' + (supports.length !== 1 ? 's' : '') + '</strong>' : '') + '.');
+
+  // 2. Unattacked claims
+  var attacked = {};
+  attacks.forEach(function(a) { attacked[a.to] = true; });
+  var unattacked = claims.filter(function(c) { return !attacked[c.id] && status[c.id] === 'accepted'; });
+  if (unattacked.length > 0) {
+    var ids = unattacked.map(function(c) { return claimRef(c.id); });
+    paragraphs.push(ids.join(', ') + ' face' + (unattacked.length === 1 ? 's' : '') + ' no challenges and ' + (unattacked.length === 1 ? 'is' : 'are') + ' accepted outright.');
+  }
+
+  // 3. Key conflicts — grouped by outcome
+  if (attacks.length > 0) {
+    var successful = []; // attacker accepted or target rejected
+    var failed = [];     // target survived (accepted)
+
+    attacks.forEach(function(a) {
+      var attackerStatus = status[a.from] || 'undecided';
+      var targetStatus = status[a.to] || 'undecided';
+      var sentence = claimRef(a.from) + ' challenges ' + claimRef(a.to) + (a.reason ? ' — ' + a.reason : '') + '.';
+      if (targetStatus === 'rejected') {
+        successful.push(sentence);
+      } else if (targetStatus === 'accepted') {
+        failed.push(sentence);
+      }
+    });
+
+    if (successful.length > 0) {
+      paragraphs.push('<strong>Successful challenges:</strong> ' + successful.join(' '));
+    }
+    if (failed.length > 0) {
+      paragraphs.push('<strong>Survived challenges:</strong> ' + failed.join(' '));
+    }
+  }
+
+  // 4. Defense chains — where a claim survives because its attacker is attacked
+  var defenseChains = [];
+  attacks.forEach(function(a) {
+    var targetStatus = status[a.to] || 'undecided';
+    var attackerStatus = status[a.from] || 'undecided';
+    if (targetStatus === 'accepted' && attackerStatus === 'rejected') {
+      // Find what defeats the attacker
+      attacks.forEach(function(a2) {
+        if (a2.to === a.from && grounded.has(a2.from)) {
+          defenseChains.push(claimRef(a.to) + ' survives because its attacker ' + claimRef(a.from) + ' is defeated by ' + claimRef(a2.from) + '.');
+        }
+      });
+    }
+  });
+  if (defenseChains.length > 0) {
+    // Deduplicate
+    var seen = {};
+    var unique = defenseChains.filter(function(s) { if (seen[s]) return false; seen[s] = true; return true; });
+    paragraphs.push('<strong>Defense chains:</strong> ' + unique.join(' '));
+  }
+
+  // 5. Unresolved tensions
+  var undecidedClaims = claims.filter(function(c) { return status[c.id] === 'undecided'; });
+  if (undecidedClaims.length > 0) {
+    var undecidedIds = undecidedClaims.map(function(c) { return claimRef(c.id); });
+    var undecidedAttacks = attacks.filter(function(a) { return status[a.from] === 'undecided' && status[a.to] === 'undecided'; });
+    if (undecidedAttacks.length > 0) {
+      var tensions = undecidedAttacks.map(function(a) {
+        return 'The conflict between ' + claimRef(a.from) + ' and ' + claimRef(a.to) + ' cannot be resolved — neither side has a decisive advantage.';
+      });
+      paragraphs.push('<strong>Unresolved tensions:</strong> ' + tensions.join(' '));
+    } else if (undecidedClaims.length > 0) {
+      paragraphs.push(undecidedIds.join(', ') + ' remain' + (undecidedClaims.length === 1 ? 's' : '') + ' undecided — ' + (undecidedClaims.length === 1 ? 'its' : 'their') + ' status cannot be definitively determined under formal analysis.');
+    }
+  }
+
+  if (paragraphs.length <= 1) return ''; // Only the opening — not much to narrate
+  return '<div class="narrative-walkthrough">' + paragraphs.map(function(p) { return '<p>' + p + '</p>'; }).join('') + '</div>';
+}
+
 function renderNarrative(data, panelId) {
   panelId = panelId || 'narrativePanel';
   const panel = document.getElementById(panelId);
@@ -2037,6 +2148,7 @@ function renderNarrative(data, panelId) {
   panel.innerHTML =
     '<div class="narrative-title">Analysis</div>' +
     '<div class="narrative-verdict">' + verdict + '</div>' +
+    renderWalkthrough(data) +
     '<div class="narrative-sections">' +
       '<div class="narr-section"><div class="narr-label">Grounded Extension (Skeptical)</div><div class="narr-body">' + groundedHTML + '</div></div>' +
       '<div class="narr-section"><div class="narr-label">Preferred Extensions (Credulous)</div><div class="narr-body">' + preferredHTML + '</div></div>' +
@@ -2096,12 +2208,69 @@ function renderClaims(data, panelId) {
         supportsTo[c.id].map(function(r) { return '<span class="claim-rel-chip support-chip" title="' + escapeAttr(r.reason || '') + '">' + r.id + '</span>'; }).join(' ') + '</span>');
     }
 
+    // Build per-claim reasoning explanation
+    var reasoning = '';
+    if (s === 'accepted') {
+      if (!attackedBy[c.id] || attackedBy[c.id].length === 0) {
+        reasoning = 'Accepted: unattacked, so defensible by default.';
+      } else {
+        var attackerIds = attackedBy[c.id].map(function(r) { return r.id; });
+        var defeatedAttackers = attackerIds.filter(function(aid) { return status[aid] === 'rejected'; });
+        if (defeatedAttackers.length === attackerIds.length) {
+          // All attackers are rejected — find what defeats them
+          var defenders = [];
+          defeatedAttackers.forEach(function(aid) {
+            if (attackedBy[aid]) {
+              attackedBy[aid].forEach(function(r) {
+                if (grounded.has(r.id) && defenders.indexOf(r.id) === -1) defenders.push(r.id);
+              });
+            }
+          });
+          if (defenders.length > 0) {
+            reasoning = 'Accepted: attacked by ' + attackerIds.join(', ') + ', but defended — ' + defenders.join(', ') + ' defeat' + (defenders.length === 1 ? 's' : '') + ' the attacker' + (attackerIds.length === 1 ? '' : 's') + '.';
+          } else {
+            reasoning = 'Accepted: attacked by ' + attackerIds.join(', ') + ', but all attackers are themselves defeated.';
+          }
+        } else {
+          reasoning = 'Accepted: attacked by ' + attackerIds.join(', ') + ', but survives formal analysis.';
+        }
+      }
+    } else if (s === 'rejected') {
+      if (attackedBy[c.id] && attackedBy[c.id].length > 0) {
+        var successfulAttacks = attackedBy[c.id].filter(function(r) { return status[r.id] !== 'rejected'; });
+        if (successfulAttacks.length > 0) {
+          var parts = successfulAttacks.map(function(r) {
+            return r.id + (r.reason ? ' (' + r.reason + ')' : '');
+          });
+          reasoning = 'Rejected: attacked by ' + parts.join('; ') + ' — and no claim in the grounded set defends it.';
+        } else {
+          reasoning = 'Rejected: defeated through the argument structure despite all direct attackers being rejected.';
+        }
+      } else {
+        reasoning = 'Rejected: excluded from all defensible positions in the argument framework.';
+      }
+    } else {
+      // undecided
+      if (attackedBy[c.id] && attackedBy[c.id].length > 0) {
+        var conflictIds = attackedBy[c.id].map(function(r) { return r.id; });
+        var mutualConflicts = conflictIds.filter(function(aid) { return status[aid] === 'undecided'; });
+        if (mutualConflicts.length > 0) {
+          reasoning = 'Undecided: involved in a mutual conflict with ' + mutualConflicts.join(', ') + ' that cannot be resolved from the grounded perspective.';
+        } else {
+          reasoning = 'Undecided: attacked by ' + conflictIds.join(', ') + ' — status cannot be definitively determined.';
+        }
+      } else {
+        reasoning = 'Undecided: status cannot be definitively determined under formal analysis.';
+      }
+    }
+
     return '<div class="claim-card">' +
       '<div class="claim-card-header">' +
         '<span class="claim-badge ' + s + '">' + c.id + ' &middot; ' + s + '</span>' +
         (isGrounded ? '<span class="claim-grounded-tag">grounded</span>' : '') +
       '</div>' +
       '<div class="claim-card-text">' + c.text + '</div>' +
+      '<div class="claim-reasoning ' + s + '">' + reasoning + '</div>' +
       (relations.length ? '<div class="claim-relations">' + relations.join('') + '</div>' : '') +
     '</div>';
   }).join('');
