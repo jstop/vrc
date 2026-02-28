@@ -9,7 +9,8 @@ import json
 import os
 import hashlib
 import datetime
-import sqlite3
+import uuid
+from decimal import Decimal
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 
@@ -19,39 +20,99 @@ from dung_solver import ArgumentationFramework, build_framework
 
 app = Flask(__name__)
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vrc.db")
+DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE")
 
+# ---------------------------------------------------------------------------
+# DynamoDB backend (used when DYNAMODB_TABLE is set, i.e. on Lambda)
+# ---------------------------------------------------------------------------
+if DYNAMODB_TABLE:
+    import boto3
 
-def init_db():
-    """Create the analyses table and indexes if they don't exist."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS analyses (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
-            source_hash   TEXT    NOT NULL,
-            source_text   TEXT    NOT NULL,
-            summary_label TEXT    NOT NULL DEFAULT '',
-            accepted      INTEGER NOT NULL DEFAULT 0,
-            rejected      INTEGER NOT NULL DEFAULT 0,
-            undecided     INTEGER NOT NULL DEFAULT 0,
-            result_json   TEXT    NOT NULL
+    _ddb = boto3.resource("dynamodb")
+    _table = _ddb.Table(DYNAMODB_TABLE)
+
+    def _ddb_save(source_hash, source_text, summary_label, acc, rej, und, result_json):
+        ts = datetime.datetime.utcnow().isoformat() + "Z"
+        sk = f"{ts}#{uuid.uuid4().hex[:8]}"
+        _table.put_item(Item={
+            "pk": "ANALYSIS",
+            "sk": sk,
+            "source_hash": source_hash,
+            "source_text": source_text,
+            "summary_label": summary_label,
+            "accepted": acc,
+            "rejected": rej,
+            "undecided": und,
+            "result_json": result_json,
+        })
+        return sk
+
+    def _ddb_list():
+        resp = _table.query(
+            KeyConditionExpression=boto3.dynamodb.conditions.Key("pk").eq("ANALYSIS"),
+            ScanIndexForward=False,
+            Limit=50,
+            ProjectionExpression="sk, summary_label, accepted, rejected, undecided, source_hash",
         )
-    """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON analyses(created_at DESC)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_source_hash ON analyses(source_hash)")
-    conn.commit()
-    conn.close()
+        rows = []
+        for item in resp.get("Items", []):
+            rows.append({
+                "id": item["sk"],
+                "created_at": item["sk"].split("#")[0],
+                "summary_label": item["summary_label"],
+                "accepted": int(item["accepted"]),
+                "rejected": int(item["rejected"]),
+                "undecided": int(item["undecided"]),
+                "source_hash": item["source_hash"],
+            })
+        return rows
 
+    def _ddb_get(sk):
+        resp = _table.get_item(Key={"pk": "ANALYSIS", "sk": sk})
+        item = resp.get("Item")
+        if not item:
+            return None
+        result = json.loads(item["result_json"])
+        result["source_text"] = item["source_text"]
+        return result
 
-def get_db():
-    """Return a new SQLite connection with row-factory enabled."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    def _ddb_delete(sk):
+        _table.delete_item(Key={"pk": "ANALYSIS", "sk": sk})
 
+# ---------------------------------------------------------------------------
+# SQLite backend (local dev)
+# ---------------------------------------------------------------------------
+else:
+    import sqlite3
 
-init_db()
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vrc.db")
+
+    def _init_db():
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS analyses (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+                source_hash   TEXT    NOT NULL,
+                source_text   TEXT    NOT NULL,
+                summary_label TEXT    NOT NULL DEFAULT '',
+                accepted      INTEGER NOT NULL DEFAULT 0,
+                rejected      INTEGER NOT NULL DEFAULT 0,
+                undecided     INTEGER NOT NULL DEFAULT 0,
+                result_json   TEXT    NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON analyses(created_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_source_hash ON analyses(source_hash)")
+        conn.commit()
+        conn.close()
+
+    def _get_db():
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    _init_db()
 
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
@@ -192,25 +253,28 @@ def analyze():
             "vrc": vrc,
         }
 
-        # Step 4: Persist to SQLite
+        # Step 4: Persist
         summary = analysis.get("summary", {})
         acc = summary.get("accepted", 0)
         rej = summary.get("rejected", 0)
         und = summary.get("undecided", 0)
         total = acc + rej + und
         summary_label = f"{total} claims · {acc} accepted"
-
         source_hash = hashlib.sha256(text.encode()).hexdigest()
-        db = get_db()
-        cur = db.execute(
-            """INSERT INTO analyses
-               (source_hash, source_text, summary_label, accepted, rejected, undecided, result_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (source_hash, text, summary_label, acc, rej, und, json.dumps(result)),
-        )
-        db.commit()
-        row_id = cur.lastrowid
-        db.close()
+
+        if DYNAMODB_TABLE:
+            row_id = _ddb_save(source_hash, text, summary_label, acc, rej, und, json.dumps(result))
+        else:
+            db = _get_db()
+            cur = db.execute(
+                """INSERT INTO analyses
+                   (source_hash, source_text, summary_label, accepted, rejected, undecided, result_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (source_hash, text, summary_label, acc, rej, und, json.dumps(result)),
+            )
+            db.commit()
+            row_id = cur.lastrowid
+            db.close()
 
         result["id"] = row_id
         return jsonify(result)
@@ -224,7 +288,9 @@ def analyze():
 @app.route("/history")
 def history():
     """Return last 50 analyses (lightweight — no full text or result blob)."""
-    db = get_db()
+    if DYNAMODB_TABLE:
+        return jsonify(_ddb_list())
+    db = _get_db()
     rows = db.execute(
         """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash
            FROM analyses ORDER BY created_at DESC LIMIT 50"""
@@ -233,12 +299,17 @@ def history():
     return jsonify([dict(r) for r in rows])
 
 
-@app.route("/analysis/<int:analysis_id>")
+@app.route("/analysis/<path:analysis_id>")
 def get_analysis(analysis_id):
     """Return full result_json + source_text for a saved analysis."""
-    db = get_db()
+    if DYNAMODB_TABLE:
+        result = _ddb_get(analysis_id)
+        if not result:
+            return jsonify({"error": "Analysis not found"}), 404
+        return jsonify(result)
+    db = _get_db()
     row = db.execute(
-        "SELECT result_json, source_text FROM analyses WHERE id = ?", (analysis_id,)
+        "SELECT result_json, source_text FROM analyses WHERE id = ?", (int(analysis_id),)
     ).fetchone()
     db.close()
     if not row:
@@ -248,11 +319,14 @@ def get_analysis(analysis_id):
     return jsonify(result)
 
 
-@app.route("/analysis/<int:analysis_id>", methods=["DELETE"])
+@app.route("/analysis/<path:analysis_id>", methods=["DELETE"])
 def delete_analysis(analysis_id):
     """Delete a single saved analysis."""
-    db = get_db()
-    db.execute("DELETE FROM analyses WHERE id = ?", (analysis_id,))
+    if DYNAMODB_TABLE:
+        _ddb_delete(analysis_id)
+        return jsonify({"ok": True})
+    db = _get_db()
+    db.execute("DELETE FROM analyses WHERE id = ?", (int(analysis_id),))
     db.commit()
     db.close()
     return jsonify({"ok": True})
@@ -262,6 +336,16 @@ def delete_analysis(analysis_id):
 def health():
     return jsonify({"status": "ok", "service": "vrc"})
 
+
+# ---------------------------------------------------------------------------
+# Lambda entry-point (ignored when running locally)
+# ---------------------------------------------------------------------------
+try:
+    from mangum import Mangum
+    from asgiref.wsgi import WsgiToAsgi
+    handler = Mangum(WsgiToAsgi(app))
+except ImportError:
+    pass
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

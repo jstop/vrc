@@ -1420,7 +1420,7 @@ function toggleHistory() {
 
 function timeAgo(dateStr) {
   const now = new Date();
-  const then = new Date(dateStr + 'Z'); // SQLite datetime('now') is UTC
+  const then = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
   const seconds = Math.floor((now - then) / 1000);
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
@@ -1468,13 +1468,13 @@ async function fetchHistory() {
     }
 
     list.innerHTML = items.map(item => `
-      <div class="history-item ${loadedHistoryId === item.id ? 'active' : ''}" data-id="${item.id}" onclick="loadFromHistory(${item.id})">
+      <div class="history-item ${loadedHistoryId === item.id ? 'active' : ''}" data-id="${item.id}" onclick="loadFromHistory('${item.id}')">
         <div class="history-item-body">
           <span class="history-time">${timeAgo(item.created_at)}</span>
           <span class="history-label">${escapeAttr(item.summary_label)}</span>
         </div>
         <div class="history-dots">${buildDots(item.accepted, item.rejected, item.undecided)}</div>
-        <button class="history-delete" onclick="event.stopPropagation(); deleteHistory(${item.id})" title="Delete">✕</button>
+        <button class="history-delete" onclick="event.stopPropagation(); deleteHistory('${item.id}')" title="Delete">✕</button>
       </div>
     `).join('');
   } catch (e) {
@@ -1495,7 +1495,7 @@ async function loadFromHistory(id) {
   selectedNode = null;
 
   try {
-    const res = await fetch('/analysis/' + id);
+    const res = await fetch('/analysis/' + encodeURIComponent(id));
     const data = await res.json();
 
     if (data.error) {
@@ -1537,7 +1537,7 @@ async function loadFromHistory(id) {
 async function deleteHistory(id) {
   if (!confirm('Delete this analysis?')) return;
   try {
-    await fetch('/analysis/' + id, { method: 'DELETE' });
+    await fetch('/analysis/' + encodeURIComponent(id), { method: 'DELETE' });
     if (loadedHistoryId === id) {
       loadedHistoryId = null;
       document.getElementById('historyBadgeIndicator').style.display = 'none';

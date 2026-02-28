@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  VRC Serverless — Lambda + API Gateway + DynamoDB + custom domain.
+
+Parameters:
+  AnthropicApiKey:
+    Type: String
+    NoEcho: true
+    Description: Anthropic API key for Claude
+
+  S3Bucket:
+    Type: String
+    Description: S3 bucket containing lambda.zip
+
+  S3Key:
+    Type: String
+    Default: lambda.zip
+    Description: S3 key for the Lambda deployment package
+
+  HostedZoneId:
+    Type: String
+    Description: Route 53 hosted zone ID for the domain
+
+  DomainName:
+    Type: String
+    Default: vrc.routinebuilders.com
+    Description: Custom domain name
+
+Resources:
+
+  # --- DynamoDB Table ---
+  AnalysesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-analyses'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+
+  # --- Lambda Function ---
+  VRCFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-app'
+      Runtime: python3.12
+      Handler: app.handler
+      CodeUri:
+        Bucket: !Ref S3Bucket
+        Key: !Ref S3Key
+      MemorySize: 512
+      Timeout: 120
+      Environment:
+        Variables:
+          ANTHROPIC_API_KEY: !Ref AnthropicApiKey
+          DYNAMODB_TABLE: !Ref AnalysesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AnalysesTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VRCHttpApi
+            Path: /{proxy+}
+            Method: ANY
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VRCHttpApi
+            Path: /
+            Method: ANY
+
+  # --- HTTP API ---
+  VRCHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+
+  # --- ACM Certificate (DNS-validated via Route 53) ---
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  # --- Custom Domain ---
+  CustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    DependsOn: Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - EndpointType: REGIONAL
+          CertificateArn: !Ref Certificate
+
+  # --- Map custom domain → HTTP API ---
+  ApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn: CustomDomain
+    Properties:
+      DomainName: !Ref DomainName
+      ApiId: !Ref VRCHttpApi
+      Stage: $default
+
+  # --- Route 53 A Record ---
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CustomDomain.RegionalDomainName
+        HostedZoneId: !GetAtt CustomDomain.RegionalHostedZoneId
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${VRCHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+
+  CustomUrl:
+    Description: Custom domain URL
+    Value: !Sub 'https://${DomainName}'
