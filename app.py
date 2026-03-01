@@ -32,7 +32,7 @@ if DYNAMODB_TABLE:
     _ddb = boto3.resource("dynamodb")
     _table = _ddb.Table(DYNAMODB_TABLE)
 
-    def _ddb_save(source_hash, source_text, summary_label, acc, rej, und, result_json, handle="anon"):
+    def _ddb_save(source_hash, source_text, summary_label, acc, rej, und, result_json, handle="anon", topic=""):
         ts = datetime.datetime.utcnow().isoformat() + "Z"
         sk = f"{ts}#{uuid.uuid4().hex[:8]}"
         _table.put_item(Item={
@@ -41,6 +41,7 @@ if DYNAMODB_TABLE:
             "source_hash": source_hash,
             "source_text": source_text,
             "summary_label": summary_label,
+            "topic": topic,
             "accepted": acc,
             "rejected": rej,
             "undecided": und,
@@ -56,7 +57,7 @@ if DYNAMODB_TABLE:
             KeyConditionExpression=boto3.dynamodb.conditions.Key("pk").eq("ANALYSIS"),
             ScanIndexForward=False,
             Limit=50,
-            ProjectionExpression="sk, summary_label, accepted, rejected, undecided, source_hash, handle",
+            ProjectionExpression="sk, summary_label, topic, accepted, rejected, undecided, source_hash, handle",
         )
         rows = []
         for item in resp.get("Items", []):
@@ -64,6 +65,7 @@ if DYNAMODB_TABLE:
                 "id": item["sk"],
                 "created_at": item["sk"].split("#")[0],
                 "summary_label": item["summary_label"],
+                "topic": item.get("topic", ""),
                 "accepted": int(item["accepted"]),
                 "rejected": int(item["rejected"]),
                 "undecided": int(item["undecided"]),
@@ -78,7 +80,7 @@ if DYNAMODB_TABLE:
             "KeyConditionExpression": boto3.dynamodb.conditions.Key("gsi1pk").eq("FEED"),
             "ScanIndexForward": False,
             "Limit": limit,
-            "ProjectionExpression": "sk, summary_label, accepted, rejected, undecided, source_hash, handle",
+            "ProjectionExpression": "sk, summary_label, topic, accepted, rejected, undecided, source_hash, handle",
         }
         if cursor:
             kwargs["ExclusiveStartKey"] = json.loads(cursor)
@@ -89,6 +91,7 @@ if DYNAMODB_TABLE:
                 "id": item["sk"],
                 "created_at": item["sk"].split("#")[0],
                 "summary_label": item["summary_label"],
+                "topic": item.get("topic", ""),
                 "accepted": int(item["accepted"]),
                 "rejected": int(item["rejected"]),
                 "undecided": int(item["undecided"]),
@@ -143,6 +146,11 @@ else:
             conn.execute("ALTER TABLE analyses ADD COLUMN handle TEXT NOT NULL DEFAULT 'anon'")
         except sqlite3.OperationalError:
             pass  # column already exists
+        # Add topic column if missing
+        try:
+            conn.execute("ALTER TABLE analyses ADD COLUMN topic TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.commit()
         conn.close()
 
@@ -157,7 +165,7 @@ else:
         db = _get_db()
         offset = int(cursor) if cursor else 0
         rows = db.execute(
-            """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash, handle
+            """SELECT id, created_at, summary_label, topic, accepted, rejected, undecided, source_hash, handle
                FROM analyses ORDER BY created_at DESC LIMIT ? OFFSET ?""",
             (limit, offset),
         ).fetchall()
@@ -192,6 +200,7 @@ IMPORTANT RULES:
 Respond with ONLY valid JSON in this exact format, no other text:
 
 {
+  "topic": "A short (3-8 word) title describing the subject matter of the text",
   "claims": [
     {"id": "c1", "text": "The specific claim text"},
     {"id": "c2", "text": "Another claim"}
@@ -320,6 +329,7 @@ def analyze():
         }
 
         # Step 4: Persist
+        topic = extraction.get("topic", "")
         summary = analysis.get("summary", {})
         acc = summary.get("accepted", 0)
         rej = summary.get("rejected", 0)
@@ -334,14 +344,14 @@ def analyze():
         source_hash = hashlib.sha256(text.encode()).hexdigest()
 
         if DYNAMODB_TABLE:
-            row_id = _ddb_save(source_hash, text, summary_label, acc, rej, und, json.dumps(result), handle)
+            row_id = _ddb_save(source_hash, text, summary_label, acc, rej, und, json.dumps(result), handle, topic)
         else:
             db = _get_db()
             cur = db.execute(
                 """INSERT INTO analyses
-                   (source_hash, source_text, summary_label, accepted, rejected, undecided, result_json, handle)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (source_hash, text, summary_label, acc, rej, und, json.dumps(result), handle),
+                   (source_hash, source_text, summary_label, topic, accepted, rejected, undecided, result_json, handle)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (source_hash, text, summary_label, topic, acc, rej, und, json.dumps(result), handle),
             )
             db.commit()
             row_id = cur.lastrowid
@@ -376,7 +386,7 @@ def history():
         return jsonify(_ddb_list())
     db = _get_db()
     rows = db.execute(
-        """SELECT id, created_at, summary_label, accepted, rejected, undecided, source_hash, handle
+        """SELECT id, created_at, summary_label, topic, accepted, rejected, undecided, source_hash, handle
            FROM analyses ORDER BY created_at DESC LIMIT 50"""
     ).fetchall()
     db.close()

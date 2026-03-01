@@ -287,10 +287,18 @@ header h1 {
   color: var(--text-dim);
 }
 
-.feed-card-label {
-  font-size: 0.88rem;
-  line-height: 1.5;
+.feed-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
   color: var(--text);
+  margin-bottom: 0.2rem;
+}
+
+.feed-card-label {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-dim);
   margin-bottom: 0.5rem;
 }
 
@@ -1636,12 +1644,18 @@ async function loadFeed(append) {
         '<span class="fs"><span class="dot" style="background:var(--rejected)"></span><span class="num" style="color:var(--rejected)">' + rej + '</span></span>' +
         '<span class="fs"><span class="dot" style="background:var(--undecided)"></span><span class="num" style="color:var(--undecided)">' + und + '</span></span>';
 
+      var topicText = item.topic || '';
+      var titleHTML = topicText
+        ? '<div class="feed-card-title">' + escapeHTML(topicText) + '</div>'
+        : '';
+
       html += '<div class="feed-card" onclick="navigate(\'#/a/' + encodeURIComponent(item.id) + '\')">' +
         '<div class="feed-card-top">' +
           '<span class="feed-handle">@' + escapeHTML(handle) + '</span>' +
           '<span class="feed-verdict-tag ' + verdictClass + '">' + verdictText + '</span>' +
           '<span class="feed-time">' + ago + '</span>' +
         '</div>' +
+        titleHTML +
         '<div class="feed-card-label">' + escapeHTML(item.summary_label || 'Analysis') + '</div>' +
         '<div class="feed-bar-wrap">' +
           '<div class="feed-bar">' + barHTML + '</div>' +
