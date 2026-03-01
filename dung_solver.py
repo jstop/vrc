@@ -27,6 +27,43 @@ class ArgumentationFramework:
         self.arguments.add(target)
         self.attacks.add((attacker, target))
 
+    def connected_components(self) -> list:
+        """Find disconnected components in the attack graph (undirected)."""
+        visited = set()
+        components = []
+        adj = {}
+        for a in self.arguments:
+            adj[a] = set()
+        for (attacker, target) in self.attacks:
+            adj[attacker].add(target)
+            adj[target].add(attacker)
+        for arg in self.arguments:
+            if arg not in visited:
+                component = set()
+                queue = [arg]
+                while queue:
+                    node = queue.pop(0)
+                    if node in visited:
+                        continue
+                    visited.add(node)
+                    component.add(node)
+                    for neighbor in adj[node]:
+                        if neighbor not in visited:
+                            queue.append(neighbor)
+                components.append(component)
+        return components
+
+    def sub_framework(self, args) -> "ArgumentationFramework":
+        """Create a sub-framework containing only the specified arguments."""
+        sf = ArgumentationFramework()
+        arg_set = set(args)
+        for a in arg_set:
+            sf.add_argument(a)
+        for (attacker, target) in self.attacks:
+            if attacker in arg_set and target in arg_set:
+                sf.add_attack(attacker, target)
+        return sf
+
     def attackers_of(self, arg: str) -> set:
         return {a for (a, t) in self.attacks if t == arg}
 
@@ -150,7 +187,7 @@ class ArgumentationFramework:
         stable = self.stable_extensions()
         status = self.argument_status()
 
-        return {
+        result = {
             "arguments": sorted(self.arguments),
             "attacks": [{"from": a, "to": t} for a, t in self.attacks],
             "grounded_extension": sorted(grounded),
@@ -164,6 +201,43 @@ class ArgumentationFramework:
                 "undecided": len([a for a, s in status.items() if s == "undecided"]),
             },
         }
+
+        # Independence detection: decompose disconnected components
+        comps = self.connected_components()
+        if len(comps) > 1:
+            contested = []
+            uncontested = []
+            for comp in comps:
+                sf = self.sub_framework(comp)
+                if len(sf.attacks) == 0:
+                    uncontested.extend(sorted(comp))
+                else:
+                    sub = sf.full_analysis()
+                    contested.append({
+                        "arguments": sub["arguments"],
+                        "attacks": sub["attacks"],
+                        "grounded_extension": sub["grounded_extension"],
+                        "preferred_extensions": sub["preferred_extensions"],
+                        "argument_status": sub["argument_status"],
+                        "summary": sub["summary"],
+                    })
+
+            factors = [len(c["preferred_extensions"]) for c in contested]
+            product = 1
+            for f in factors:
+                product *= f
+
+            result["components"] = {
+                "count": len(comps),
+                "contested": contested,
+                "uncontested": uncontested,
+                "combinatorial": {
+                    "factors": factors,
+                    "product": product,
+                },
+            }
+
+        return result
 
 
 def build_framework(claims: list, attacks: list) -> ArgumentationFramework:

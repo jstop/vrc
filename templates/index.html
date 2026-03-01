@@ -1276,6 +1276,44 @@ marker path { stroke: none; }
     max-height: 200px;
   }
 }
+
+/* Independence / component decomposition section */
+.independence-section {
+    background: var(--surface2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    padding: 1rem;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+.independence-section .combo-explanation {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin: 0.5rem 0;
+}
+.component-group {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+}
+.component-group-title {
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+    color: var(--text);
+}
+.component-group .narr-claim-list {
+    margin-top: 0.3rem;
+}
+.component-hull {
+    fill-opacity: 0.04;
+    stroke-opacity: 0.2;
+    stroke-width: 1.5;
+    stroke-dasharray: 4,3;
+}
 </style>
 </head>
 <body>
@@ -1923,6 +1961,10 @@ function renderGraph(data, containerId, svgId, tooltipId, edgeTooltipId) {
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collision', d3.forceCollide().radius(40));
 
+  // Component hull group (drawn behind everything)
+  const hullGroup = svg.append('g').attr('class', 'hulls');
+  const hullColors = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#a78bfa'];
+
   // Draw visible links
   const linkGroup = svg.append('g').attr('class', 'links');
   const link = linkGroup
@@ -2104,6 +2146,40 @@ function renderGraph(data, containerId, svgId, tooltipId, edgeTooltipId) {
       .attr('y2', d => d.target.y);
 
     node.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
+
+    // Update component hulls
+    if (data.analysis.components && data.analysis.components.contested.length > 0) {
+      hullGroup.selectAll('path').remove();
+      var comps = data.analysis.components.contested;
+      // Also include uncontested as a group if they exist
+      var allGroups = comps.map(function(c) { return c.arguments; });
+      var uncontested = data.analysis.components.uncontested || [];
+      if (uncontested.length >= 2) {
+        allGroups.push(uncontested);
+      }
+      allGroups.forEach(function(argIds, i) {
+        var compNodes = nodes.filter(n => argIds.indexOf(n.id) !== -1);
+        if (compNodes.length < 3) return;
+        var points = compNodes.map(n => [n.x, n.y]);
+        var hull = d3.polygonHull(points);
+        if (hull) {
+          // Expand hull outward for padding
+          var cx = d3.mean(hull, p => p[0]);
+          var cy = d3.mean(hull, p => p[1]);
+          var padded = hull.map(function(p) {
+            var dx = p[0] - cx, dy = p[1] - cy;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            var scale = (dist + 30) / dist;
+            return [cx + dx * scale, cy + dy * scale];
+          });
+          hullGroup.append('path')
+            .attr('d', 'M' + padded.map(p => p.join(',')).join('L') + 'Z')
+            .attr('class', 'component-hull')
+            .attr('fill', hullColors[i % hullColors.length])
+            .attr('stroke', hullColors[i % hullColors.length]);
+        }
+      });
+    }
   });
 
   function dragstarted(event, d) {
@@ -2124,6 +2200,76 @@ function renderGraph(data, containerId, svgId, tooltipId, edgeTooltipId) {
   }
 }
 
+function renderWalkthroughForSubset(claims, attacks, supports, status, grounded, claimRef) {
+  var paragraphs = [];
+
+  // Unattacked claims
+  var attacked = {};
+  attacks.forEach(function(a) { attacked[a.to] = true; });
+  var unattacked = claims.filter(function(c) { return !attacked[c.id] && status[c.id] === 'accepted'; });
+  if (unattacked.length > 0) {
+    var ids = unattacked.map(function(c) { return claimRef(c.id); });
+    paragraphs.push(ids.join(', ') + ' face' + (unattacked.length === 1 ? 's' : '') + ' no challenges and ' + (unattacked.length === 1 ? 'is' : 'are') + ' accepted outright.');
+  }
+
+  // Key conflicts
+  if (attacks.length > 0) {
+    var successful = [];
+    var failed = [];
+    attacks.forEach(function(a) {
+      var targetStatus = status[a.to] || 'undecided';
+      var sentence = claimRef(a.from) + ' challenges ' + claimRef(a.to) + (a.reason ? ' — ' + a.reason : '') + '.';
+      if (targetStatus === 'rejected') {
+        successful.push(sentence);
+      } else if (targetStatus === 'accepted') {
+        failed.push(sentence);
+      }
+    });
+    if (successful.length > 0) {
+      paragraphs.push('<strong>Successful challenges:</strong> ' + successful.join(' '));
+    }
+    if (failed.length > 0) {
+      paragraphs.push('<strong>Survived challenges:</strong> ' + failed.join(' '));
+    }
+  }
+
+  // Defense chains
+  var defenseChains = [];
+  attacks.forEach(function(a) {
+    var targetStatus = status[a.to] || 'undecided';
+    var attackerStatus = status[a.from] || 'undecided';
+    if (targetStatus === 'accepted' && attackerStatus === 'rejected') {
+      attacks.forEach(function(a2) {
+        if (a2.to === a.from && grounded.has(a2.from)) {
+          defenseChains.push(claimRef(a.to) + ' survives because its attacker ' + claimRef(a.from) + ' is defeated by ' + claimRef(a2.from) + '.');
+        }
+      });
+    }
+  });
+  if (defenseChains.length > 0) {
+    var seen = {};
+    var unique = defenseChains.filter(function(s) { if (seen[s]) return false; seen[s] = true; return true; });
+    paragraphs.push('<strong>Defense chains:</strong> ' + unique.join(' '));
+  }
+
+  // Unresolved tensions
+  var undecidedClaims = claims.filter(function(c) { return status[c.id] === 'undecided'; });
+  if (undecidedClaims.length > 0) {
+    var undecidedIds = undecidedClaims.map(function(c) { return claimRef(c.id); });
+    var undecidedAttacks = attacks.filter(function(a) { return status[a.from] === 'undecided' && status[a.to] === 'undecided'; });
+    if (undecidedAttacks.length > 0) {
+      var tensions = undecidedAttacks.map(function(a) {
+        return 'The conflict between ' + claimRef(a.from) + ' and ' + claimRef(a.to) + ' cannot be resolved — neither side has a decisive advantage.';
+      });
+      paragraphs.push('<strong>Unresolved tensions:</strong> ' + tensions.join(' '));
+    } else {
+      paragraphs.push(undecidedIds.join(', ') + ' remain' + (undecidedClaims.length === 1 ? 's' : '') + ' undecided — ' + (undecidedClaims.length === 1 ? 'its' : 'their') + ' status cannot be definitively determined under formal analysis.');
+    }
+  }
+
+  return paragraphs;
+}
+
 function renderWalkthrough(data) {
   var claims = data.claims;
   var attacks = data.attacks || [];
@@ -2136,88 +2282,97 @@ function renderWalkthrough(data) {
     return '<span class="wt-claim-ref ' + s + '">' + id + '</span>';
   }
 
-  // Build lookup of claim text by id
   var claimText = {};
   claims.forEach(function(c) { claimText[c.id] = c.text; });
 
   var paragraphs = [];
 
-  // 1. Opening
+  // Opening
   paragraphs.push('This analysis extracted <strong>' + claims.length + ' claim' + (claims.length !== 1 ? 's' : '') + '</strong>' +
     ' with <strong>' + attacks.length + ' attack relation' + (attacks.length !== 1 ? 's' : '') + '</strong>' +
     (supports.length > 0 ? ' and <strong>' + supports.length + ' support relation' + (supports.length !== 1 ? 's' : '') + '</strong>' : '') + '.');
 
-  // 2. Unattacked claims
-  var attacked = {};
-  attacks.forEach(function(a) { attacked[a.to] = true; });
-  var unattacked = claims.filter(function(c) { return !attacked[c.id] && status[c.id] === 'accepted'; });
-  if (unattacked.length > 0) {
-    var ids = unattacked.map(function(c) { return claimRef(c.id); });
-    paragraphs.push(ids.join(', ') + ' face' + (unattacked.length === 1 ? 's' : '') + ' no challenges and ' + (unattacked.length === 1 ? 'is' : 'are') + ' accepted outright.');
-  }
+  // Per-component walkthrough when independent components exist
+  var comp = data.analysis.components;
+  if (comp && comp.contested.length > 1) {
+    comp.contested.forEach(function(c, i) {
+      var argSet = new Set(c.arguments);
+      var compClaims = claims.filter(function(cl) { return argSet.has(cl.id); });
+      var compAttacks = attacks.filter(function(a) { return argSet.has(a.from) && argSet.has(a.to); });
+      var compSupports = supports.filter(function(s) { return argSet.has(s.from) && argSet.has(s.to); });
+      var compGrounded = new Set(c.grounded_extension || []);
+      var label = claimText[c.arguments[0]] || c.arguments[0];
+      if (label.length > 50) label = label.substring(0, 47) + '...';
 
-  // 3. Key conflicts — grouped by outcome
-  if (attacks.length > 0) {
-    var successful = []; // attacker accepted or target rejected
-    var failed = [];     // target survived (accepted)
-
-    attacks.forEach(function(a) {
-      var attackerStatus = status[a.from] || 'undecided';
-      var targetStatus = status[a.to] || 'undecided';
-      var sentence = claimRef(a.from) + ' challenges ' + claimRef(a.to) + (a.reason ? ' — ' + a.reason : '') + '.';
-      if (targetStatus === 'rejected') {
-        successful.push(sentence);
-      } else if (targetStatus === 'accepted') {
-        failed.push(sentence);
+      var subParas = renderWalkthroughForSubset(compClaims, compAttacks, compSupports, status, compGrounded, claimRef);
+      if (subParas.length > 0) {
+        paragraphs.push('<strong>Debate ' + (i + 1) + '</strong> (' + c.arguments.join(', ') + '):');
+        paragraphs = paragraphs.concat(subParas);
       }
     });
 
-    if (successful.length > 0) {
-      paragraphs.push('<strong>Successful challenges:</strong> ' + successful.join(' '));
+    if (comp.uncontested.length > 0) {
+      var uncontIds = comp.uncontested.map(function(id) { return claimRef(id); });
+      paragraphs.push(uncontIds.join(', ') + ' ' + (comp.uncontested.length === 1 ? 'is' : 'are') + ' uncontested and accepted in all worldviews.');
     }
-    if (failed.length > 0) {
-      paragraphs.push('<strong>Survived challenges:</strong> ' + failed.join(' '));
-    }
+  } else {
+    // Single-component: flat walkthrough as before
+    var subParas = renderWalkthroughForSubset(claims, attacks, supports, status, grounded, claimRef);
+    paragraphs = paragraphs.concat(subParas);
   }
 
-  // 4. Defense chains — where a claim survives because its attacker is attacked
-  var defenseChains = [];
-  attacks.forEach(function(a) {
-    var targetStatus = status[a.to] || 'undecided';
-    var attackerStatus = status[a.from] || 'undecided';
-    if (targetStatus === 'accepted' && attackerStatus === 'rejected') {
-      // Find what defeats the attacker
-      attacks.forEach(function(a2) {
-        if (a2.to === a.from && grounded.has(a2.from)) {
-          defenseChains.push(claimRef(a.to) + ' survives because its attacker ' + claimRef(a.from) + ' is defeated by ' + claimRef(a2.from) + '.');
-        }
-      });
-    }
-  });
-  if (defenseChains.length > 0) {
-    // Deduplicate
-    var seen = {};
-    var unique = defenseChains.filter(function(s) { if (seen[s]) return false; seen[s] = true; return true; });
-    paragraphs.push('<strong>Defense chains:</strong> ' + unique.join(' '));
-  }
-
-  // 5. Unresolved tensions
-  var undecidedClaims = claims.filter(function(c) { return status[c.id] === 'undecided'; });
-  if (undecidedClaims.length > 0) {
-    var undecidedIds = undecidedClaims.map(function(c) { return claimRef(c.id); });
-    var undecidedAttacks = attacks.filter(function(a) { return status[a.from] === 'undecided' && status[a.to] === 'undecided'; });
-    if (undecidedAttacks.length > 0) {
-      var tensions = undecidedAttacks.map(function(a) {
-        return 'The conflict between ' + claimRef(a.from) + ' and ' + claimRef(a.to) + ' cannot be resolved — neither side has a decisive advantage.';
-      });
-      paragraphs.push('<strong>Unresolved tensions:</strong> ' + tensions.join(' '));
-    } else if (undecidedClaims.length > 0) {
-      paragraphs.push(undecidedIds.join(', ') + ' remain' + (undecidedClaims.length === 1 ? 's' : '') + ' undecided — ' + (undecidedClaims.length === 1 ? 'its' : 'their') + ' status cannot be definitively determined under formal analysis.');
-    }
-  }
-
-  if (paragraphs.length <= 1) return ''; // Only the opening — not much to narrate
+  if (paragraphs.length <= 1) return '';
   return '<div class="narrative-walkthrough">' + paragraphs.map(function(p) { return '<p>' + p + '</p>'; }).join('') + '</div>';
+}
+
+function renderIndependence(data) {
+  var comp = data.analysis.components;
+  if (!comp) return '';
+
+  var html = '<div class="independence-section">';
+
+  // Opening line
+  html += '<p>Your text contains <strong>' + comp.count + ' independent arguments</strong> that don\'t interact with each other.</p>';
+
+  // Combinatorial explanation
+  if (comp.contested.length > 1) {
+    var factorStr = comp.combinatorial.factors.join(' &times; ');
+    html += '<div class="combo-explanation">' + factorStr + ' = ' + comp.combinatorial.product + ' possible worldviews</div>';
+    html += '<p style="color:var(--text-dim);font-size:0.8rem;">Each debate can be resolved independently. The total worldview count is the product of per-debate positions.</p>';
+  }
+
+  // Per-component summaries
+  var claimText = {};
+  data.claims.forEach(function(c) { claimText[c.id] = c.text; });
+
+  comp.contested.forEach(function(c, i) {
+    var label = claimText[c.arguments[0]] || c.arguments[0];
+    if (label.length > 60) label = label.substring(0, 57) + '...';
+    var prefCount = c.preferred_extensions.length;
+    var statusCounts = c.summary;
+
+    html += '<div class="component-group">';
+    html += '<div class="component-group-title">Debate ' + (i + 1) + ': ' + label + '</div>';
+    html += '<p>' + c.arguments.length + ' claims, ' + c.attacks.length + ' attack' + (c.attacks.length !== 1 ? 's' : '') +
+      ' — ' + prefCount + ' position' + (prefCount !== 1 ? 's' : '') + '</p>';
+    html += '<div class="narr-claim-list">' + c.arguments.map(function(id) {
+      var s = c.argument_status[id] || 'undecided';
+      return '<span class="narr-claim-chip" style="border-color:var(--' + s + ');color:var(--' + s + ')">' + id + '</span>';
+    }).join('') + '</div>';
+    html += '</div>';
+  });
+
+  // Uncontested claims
+  if (comp.uncontested.length > 0) {
+    html += '<p style="margin-top:0.75rem;color:var(--text-dim);font-size:0.8rem;">' +
+      comp.uncontested.length + ' claim' + (comp.uncontested.length !== 1 ? 's are' : ' is') +
+      ' uncontested and accepted in all worldviews: ' +
+      comp.uncontested.map(function(id) { return '<span class="narr-claim-chip" style="border-color:var(--accepted);color:var(--accepted)">' + id + '</span>'; }).join('') +
+      '</p>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 function renderExtensionComparison(claims, preferred) {
@@ -2303,6 +2458,7 @@ function renderNarrative(data, panelId) {
   panel.innerHTML =
     '<div class="narrative-title">Analysis</div>' +
     '<div class="narrative-verdict">' + verdict + '</div>' +
+    renderIndependence(data) +
     renderWalkthrough(data) +
     '<div class="narrative-sections">' +
       '<div class="narr-section"><div class="narr-label">Grounded Extension (Skeptical)</div><div class="narr-body">' + groundedHTML + '</div></div>' +
