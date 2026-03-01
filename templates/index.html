@@ -2331,11 +2331,16 @@ function renderIndependence(data) {
 
   var html = '<div class="independence-section">';
 
-  // Opening line
-  html += '<p>Your text contains <strong>' + comp.count + ' independent arguments</strong> that don\'t interact with each other.</p>';
+  // Opening line — distinguish debates from isolated claims
+  var nContested = comp.contested.length;
+  var nUncontested = comp.uncontested.length;
+  var parts = [];
+  if (nContested > 0) parts.push('<strong>' + nContested + ' independent debate' + (nContested !== 1 ? 's' : '') + '</strong>');
+  if (nUncontested > 0) parts.push('<strong>' + nUncontested + ' uncontested claim' + (nUncontested !== 1 ? 's' : '') + '</strong>');
+  html += '<p>Your text contains ' + parts.join(' and ') + ' that don\'t interact with each other.</p>';
 
-  // Combinatorial explanation
-  if (comp.contested.length > 1) {
+  // Combinatorial explanation — only when at least one debate is ambiguous
+  if (comp.contested.length > 1 && comp.combinatorial.product > 1) {
     var factorStr = comp.combinatorial.factors.join(' &times; ');
     html += '<div class="combo-explanation">' + factorStr + ' = ' + comp.combinatorial.product + ' possible worldviews</div>';
     html += '<p style="color:var(--text-dim);font-size:0.8rem;">Each debate can be resolved independently. The total worldview count is the product of per-debate positions.</p>';
@@ -2346,10 +2351,11 @@ function renderIndependence(data) {
   data.claims.forEach(function(c) { claimText[c.id] = c.text; });
 
   comp.contested.forEach(function(c, i) {
-    var label = claimText[c.arguments[0]] || c.arguments[0];
+    // Label with first accepted claim's text, or first claim if none accepted
+    var labelId = c.arguments.find(function(id) { return c.argument_status[id] === 'accepted'; }) || c.arguments[0];
+    var label = claimText[labelId] || labelId;
     if (label.length > 60) label = label.substring(0, 57) + '...';
     var prefCount = c.preferred_extensions.length;
-    var statusCounts = c.summary;
 
     html += '<div class="component-group">';
     html += '<div class="component-group-title">Debate ' + (i + 1) + ': ' + label + '</div>';
