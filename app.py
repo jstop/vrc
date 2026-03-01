@@ -196,6 +196,7 @@ IMPORTANT RULES:
 - Only include attacks where there's genuine logical tension, not just difference in topic.
 - Each claim must be a clear proposition, not a question or vague statement.
 - Be precise about what attacks what. Direction matters.
+- If two claims directly contradict each other (accepting either gives reason to reject the other), include attacks in BOTH directions. Mutual attacks are expected when claims are genuine opposites.
 
 Respond with ONLY valid JSON in this exact format, no other text:
 
