@@ -202,3 +202,148 @@ class TestBuildFramework:
         claims = [{"id": "c1", "text": "X"}, {"id": "c2", "text": "Y"}]
         af = build_framework(claims, [])
         assert af.grounded_extension() == {"c1", "c2"}
+
+
+# ── Connected Components ────────────────────────────────────────────────
+
+class TestConnectedComponents:
+    def test_single_component(self, sample_framework):
+        # A→B→C is one connected component
+        comps = sample_framework.connected_components()
+        assert len(comps) == 1
+        assert comps[0] == {"A", "B", "C"}
+
+    def test_two_disconnected_pairs(self):
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("c", "d")
+        comps = af.connected_components()
+        assert len(comps) == 2
+        comp_sets = [frozenset(c) for c in comps]
+        assert frozenset({"a", "b"}) in comp_sets
+        assert frozenset({"c", "d"}) in comp_sets
+
+    def test_isolated_arguments(self):
+        af = ArgumentationFramework()
+        af.add_argument("a")
+        af.add_argument("b")
+        af.add_argument("c")
+        comps = af.connected_components()
+        assert len(comps) == 3
+
+    def test_mixed_connected_and_isolated(self):
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_argument("x")
+        comps = af.connected_components()
+        assert len(comps) == 2
+
+    def test_empty_framework(self):
+        af = ArgumentationFramework()
+        assert af.connected_components() == []
+
+
+# ── Sub-framework ───────────────────────────────────────────────────────
+
+class TestSubFramework:
+    def test_isolates_arguments(self):
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("c", "d")
+        sf = af.sub_framework({"a", "b"})
+        assert sf.arguments == {"a", "b"}
+        assert ("a", "b") in sf.attacks
+        assert len(sf.attacks) == 1
+
+    def test_excludes_cross_component_attacks(self):
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("a", "c")  # crosses into another subset
+        sf = af.sub_framework({"a", "b"})
+        assert ("a", "c") not in sf.attacks
+        assert ("a", "b") in sf.attacks
+
+    def test_preserves_internal_structure(self):
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("b", "c")
+        af.add_attack("c", "a")
+        sf = af.sub_framework({"a", "b", "c"})
+        assert sf.arguments == {"a", "b", "c"}
+        assert len(sf.attacks) == 3
+
+
+# ── Independence Detection ──────────────────────────────────────────────
+
+class TestIndependenceDetection:
+    def test_single_component_no_components_key(self, sample_framework):
+        result = sample_framework.full_analysis()
+        assert "components" not in result
+
+    def test_two_binary_debates(self):
+        """Two mutual attacks → 2 × 2 = 4 worldviews."""
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("b", "a")
+        af.add_attack("c", "d")
+        af.add_attack("d", "c")
+        result = af.full_analysis()
+        comp = result["components"]
+        assert comp["count"] == 2
+        assert len(comp["contested"]) == 2
+        assert comp["uncontested"] == []
+        assert comp["combinatorial"]["product"] == 4
+        assert len(result["preferred_extensions"]) == 4
+
+    def test_contested_plus_isolated(self):
+        """One debate + one isolated claim."""
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("b", "a")
+        af.add_argument("x")
+        result = af.full_analysis()
+        comp = result["components"]
+        assert comp["count"] == 2
+        assert len(comp["contested"]) == 1
+        assert comp["uncontested"] == ["x"]
+
+    def test_four_binary_debates_16_worldviews(self):
+        """Four independent binary debates → 2⁴ = 16 worldviews."""
+        af = ArgumentationFramework()
+        for a, b in [("a1", "a2"), ("b1", "b2"), ("c1", "c2"), ("d1", "d2")]:
+            af.add_attack(a, b)
+            af.add_attack(b, a)
+        result = af.full_analysis()
+        assert result["components"]["combinatorial"]["product"] == 16
+        assert len(result["preferred_extensions"]) == 16
+
+    def test_chain_plus_binary(self):
+        """Linear chain (1 ext) + binary mutual (2 ext) → product = 2."""
+        af = ArgumentationFramework()
+        af.add_attack("a", "b")
+        af.add_attack("b", "c")
+        af.add_attack("x", "y")
+        af.add_attack("y", "x")
+        result = af.full_analysis()
+        comp = result["components"]
+        assert sorted(comp["combinatorial"]["factors"]) == [1, 2]
+        assert comp["combinatorial"]["product"] == 2
+        assert len(result["preferred_extensions"]) == 2
+
+    def test_per_component_analysis_correct(self):
+        """Each contested component carries its own grounded/preferred/status."""
+        af = ArgumentationFramework()
+        # Chain a→b: grounded={a}, 1 preferred ext
+        af.add_attack("a", "b")
+        # Mutual c↔d: grounded={}, 2 preferred ext
+        af.add_attack("c", "d")
+        af.add_attack("d", "c")
+        result = af.full_analysis()
+        contested = result["components"]["contested"]
+        # Find the chain component and the cycle component
+        chain = next(c for c in contested if "a" in c["arguments"])
+        cycle = next(c for c in contested if "c" in c["arguments"])
+        assert chain["grounded_extension"] == ["a"]
+        assert len(chain["preferred_extensions"]) == 1
+        assert cycle["grounded_extension"] == []
+        assert len(cycle["preferred_extensions"]) == 2
