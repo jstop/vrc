@@ -758,6 +758,14 @@ marker path { stroke: none; }
 .link-dimmed {
   opacity: 0.05 !important;
 }
+.link-chain {
+  stroke-opacity: 1 !important;
+  stroke-width: 3 !important;
+}
+.node-chain circle {
+  stroke-width: 3 !important;
+  filter: url(#glow) !important;
+}
 
 /* Narrative panel */
 .narrative-panel {
@@ -857,6 +865,20 @@ marker path { stroke: none; }
 .claim-badge.rejected { background: rgba(248, 113, 113, 0.15); color: var(--rejected); }
 .claim-badge.undecided { background: rgba(251, 191, 36, 0.15); color: var(--undecided); }
 
+.claim-confidence-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.claim-confidence-tag.high { color: var(--accepted); background: rgba(52, 211, 153, 0.1); }
+.claim-confidence-tag.low { color: var(--rejected); background: rgba(248, 113, 113, 0.1); }
+
 .claim-grounded-tag {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.6rem;
@@ -925,6 +947,17 @@ marker path { stroke: none; }
 .claim-reasoning.undecided { color: var(--undecided); opacity: 0.85; }
 
 /* Narrative walkthrough */
+/* Extension comparison table */
+.ext-comparison { margin-top: 0.75rem; overflow-x: auto; }
+.ext-comparison table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.ext-comparison th { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); padding: 0.4rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border); }
+.ext-comparison th:first-child { text-align: left; }
+.ext-comparison td { padding: 0.35rem 0.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.ext-comparison td:first-child { text-align: left; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 0.68rem; }
+.ext-comparison tr.ext-divergent { background: rgba(129, 140, 248, 0.06); }
+.ext-comparison .ext-in { color: var(--accepted); }
+.ext-comparison .ext-out { color: var(--rejected); opacity: 0.4; }
+
 .narrative-walkthrough { font-size: 0.85rem; line-height: 1.65; color: var(--text); margin: 1rem 0; padding: 1rem; background: var(--surface2); border-radius: 6px; border-left: 3px solid var(--accent); }
 .narrative-walkthrough p { margin-bottom: 0.6rem; }
 .narrative-walkthrough p:last-child { margin-bottom: 0; }
@@ -1982,40 +2015,71 @@ function renderGraph(data, containerId, svgId, tooltipId, edgeTooltipId) {
     tooltipEl.style.opacity = 0;
   });
 
-  // Node click highlighting
+  // Build attack lookup for chain tracing
+  const attackedByMap = {};
+  const attacksToMap = {};
+  links.forEach(l => {
+    if (l.type !== 'attack') return;
+    const src = typeof l.source === 'object' ? l.source.id : l.source;
+    const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+    if (!attackedByMap[tgt]) attackedByMap[tgt] = [];
+    attackedByMap[tgt].push(src);
+    if (!attacksToMap[src]) attacksToMap[src] = [];
+    attacksToMap[src].push(tgt);
+  });
+
+  function traceChain(startId) {
+    // Trace the full defense chain: attackers, their attackers, etc.
+    const chainNodes = new Set([startId]);
+    const chainLinks = new Set();
+    const queue = [startId];
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      // Who attacks this node?
+      (attackedByMap[cur] || []).forEach(aid => {
+        chainLinks.add(aid + '->' + cur);
+        if (!chainNodes.has(aid)) { chainNodes.add(aid); queue.push(aid); }
+      });
+      // Who does this node attack?
+      (attacksToMap[cur] || []).forEach(tid => {
+        chainLinks.add(cur + '->' + tid);
+        if (!chainNodes.has(tid)) { chainNodes.add(tid); queue.push(tid); }
+      });
+    }
+    return { nodes: chainNodes, links: chainLinks };
+  }
+
+  function linkId(l) {
+    const src = typeof l.source === 'object' ? l.source.id : l.source;
+    const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+    return src + '->' + tgt;
+  }
+
+  // Node click — defense chain tracing
   let localSelected = null;
   node.on('click', (event, d) => {
     event.stopPropagation();
     if (localSelected === d.id) {
       localSelected = null;
-      node.classed('node-dimmed', false);
-      link.classed('link-dimmed', false);
+      node.classed('node-dimmed', false).classed('node-chain', false);
+      link.classed('link-dimmed', false).classed('link-chain', false);
       hitArea.classed('link-dimmed', false);
     } else {
       localSelected = d.id;
-      const connected = new Set([d.id]);
-      links.forEach(l => {
-        const srcId = typeof l.source === 'object' ? l.source.id : l.source;
-        const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
-        if (srcId === d.id) connected.add(tgtId);
-        if (tgtId === d.id) connected.add(srcId);
-      });
-      node.classed('node-dimmed', n => !connected.has(n.id));
-      const isConnected = l => {
-        const srcId = typeof l.source === 'object' ? l.source.id : l.source;
-        const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
-        return srcId === d.id || tgtId === d.id;
-      };
-      link.classed('link-dimmed', l => !isConnected(l));
-      hitArea.classed('link-dimmed', l => !isConnected(l));
+      const chain = traceChain(d.id);
+      node.classed('node-dimmed', n => !chain.nodes.has(n.id));
+      node.classed('node-chain', n => chain.nodes.has(n.id) && n.id !== d.id);
+      link.classed('link-dimmed', l => !chain.links.has(linkId(l)));
+      link.classed('link-chain', l => chain.links.has(linkId(l)));
+      hitArea.classed('link-dimmed', l => !chain.links.has(linkId(l)));
     }
   });
 
   svg.on('click', () => {
     if (localSelected) {
       localSelected = null;
-      node.classed('node-dimmed', false);
-      link.classed('link-dimmed', false);
+      node.classed('node-dimmed', false).classed('node-chain', false);
+      link.classed('link-dimmed', false).classed('link-chain', false);
       hitArea.classed('link-dimmed', false);
     }
   });
@@ -2156,6 +2220,29 @@ function renderWalkthrough(data) {
   return '<div class="narrative-walkthrough">' + paragraphs.map(function(p) { return '<p>' + p + '</p>'; }).join('') + '</div>';
 }
 
+function renderExtensionComparison(claims, preferred) {
+  if (!preferred || preferred.length <= 1) return '';
+  var claimIds = claims.map(function(c) { return c.id; });
+  var header = '<tr><th>Claim</th>';
+  for (var i = 0; i < preferred.length; i++) {
+    header += '<th>Position ' + (i + 1) + '</th>';
+  }
+  header += '</tr>';
+
+  var rows = claimIds.map(function(id) {
+    var inCount = 0;
+    var cells = preferred.map(function(ext) {
+      var included = ext.indexOf(id) !== -1;
+      if (included) inCount++;
+      return '<td class="' + (included ? 'ext-in' : 'ext-out') + '">' + (included ? '&#x2713;' : '—') + '</td>';
+    });
+    var divergent = inCount > 0 && inCount < preferred.length;
+    return '<tr class="' + (divergent ? 'ext-divergent' : '') + '"><td>' + id + '</td>' + cells.join('') + '</tr>';
+  });
+
+  return '<div class="ext-comparison"><table>' + header + rows.join('') + '</table></div>';
+}
+
 function renderNarrative(data, panelId) {
   panelId = panelId || 'narrativePanel';
   const panel = document.getElementById(panelId);
@@ -2198,11 +2285,9 @@ function renderNarrative(data, panelId) {
     preferredHTML = 'There is <strong>one coherent worldview</strong> — a single maximal set of mutually compatible claims: ' +
       '<div class="narr-claim-list">' + preferred[0].map(function(id) { return '<span class="narr-claim-chip">' + id + '</span>'; }).join('') + '</div>';
   } else {
-    preferredHTML = 'There are <strong>' + preferred.length + ' incompatible worldviews</strong> — reasonable people could endorse different subsets of these claims. ';
-    preferredHTML += preferred.map(function(ext, i) {
-      return '<div style="margin-top:6px;font-size:0.75rem;color:var(--text-dim)">Position ' + (i + 1) + ':</div>' +
-        '<div class="narr-claim-list">' + ext.map(function(id) { return '<span class="narr-claim-chip">' + id + '</span>'; }).join('') + '</div>';
-    }).join('');
+    preferredHTML = 'There are <strong>' + preferred.length + ' incompatible worldviews</strong> — reasonable people could endorse different subsets of these claims. ' +
+      'Highlighted rows show where positions diverge.' +
+      renderExtensionComparison(data.claims, preferred);
   }
 
   let stableHTML;
@@ -2251,6 +2336,17 @@ function renderClaims(data, panelId) {
     supportsTo[s.from].push({ id: s.to, reason: s.reason });
   });
 
+  // Compute claim confidence: % of preferred extensions that include each claim
+  const preferred = data.analysis.preferred_extensions || [];
+  const confidence = {};
+  if (preferred.length > 0) {
+    data.claims.forEach(function(c) {
+      var count = 0;
+      preferred.forEach(function(ext) { if (ext.indexOf(c.id) !== -1) count++; });
+      confidence[c.id] = Math.round((count / preferred.length) * 100);
+    });
+  }
+
   const order = { accepted: 0, undecided: 1, rejected: 2 };
   const sorted = [].concat(data.claims).sort(function(a, b) {
     return (order[status[a.id]] || 1) - (order[status[b.id]] || 1);
@@ -2259,6 +2355,11 @@ function renderClaims(data, panelId) {
   panel.innerHTML = sorted.map(function(c) {
     const s = status[c.id] || 'undecided';
     const isGrounded = grounded.has(c.id);
+    const conf = confidence[c.id];
+    const confClass = conf === 100 ? 'high' : conf === 0 ? 'low' : '';
+    const confTag = preferred.length > 1
+      ? '<span class="claim-confidence-tag ' + confClass + '">' + conf + '% of worldviews</span>'
+      : '';
 
     const relations = [];
     if (attackedBy[c.id]) {
@@ -2338,6 +2439,7 @@ function renderClaims(data, panelId) {
       '<div class="claim-card-header">' +
         '<span class="claim-badge ' + s + '">' + c.id + ' &middot; ' + s + '</span>' +
         (isGrounded ? '<span class="claim-grounded-tag">grounded</span>' : '') +
+        confTag +
       '</div>' +
       '<div class="claim-card-text">' + c.text + '</div>' +
       '<div class="claim-reasoning ' + s + '">' + reasoning + '</div>' +
